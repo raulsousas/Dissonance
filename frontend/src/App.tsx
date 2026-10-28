@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from '@/hooks/useAuth'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import { ToastContainer } from '@/components/ui/ToastContainer'
+import { QuickSwitcher } from '@/components/modals/QuickSwitcher'
 import LoginPage from '@/pages/LoginPage'
 import AppLayout from '@/components/layout/AppLayout'
 import ChannelPage from '@/pages/ChannelPage'
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>
         <ToastContainer />
+        <QuickSwitcher />
       </AuthProvider>
     </BrowserRouter>
   )

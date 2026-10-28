@@ -7,6 +7,7 @@ import { useState, useRef, useCallback } from 'react'
 import { SendHorizonal, X, FileText } from 'lucide-react'
 import type { Message, Attachment } from '@/stores/messagingStore'
 import { EmojiPicker } from './EmojiPicker'
+import { GifPicker } from './GifPicker'
 
 interface Props {
   channelName: string
@@ -256,12 +257,13 @@ export function MessageInput({
 
         {/* Right utility buttons inside input */}
         <div className="flex items-center gap-2 text-[#b5bac1] shrink-0">
-          <button title="Presente" className="hover:text-white cursor-pointer transition-colors p-0.5">
-            🎁
-          </button>
-          <button title="GIF" className="hover:text-white cursor-pointer transition-colors text-xs font-bold px-1 rounded bg-[#2b2d31]">
-            GIF
-          </button>
+          <GifPicker
+            onSelectGif={(url) => {
+              onSend(url, replyTo?.id)
+              if (replyTo) onCancelReply()
+            }}
+            disabled={disabled}
+          />
           <EmojiPicker onSelectEmoji={handleInsertEmoji} disabled={disabled} />
           <button
             onClick={handleSend}

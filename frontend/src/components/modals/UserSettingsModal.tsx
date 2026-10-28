@@ -26,16 +26,22 @@ export function UserSettingsModal({ open, onClose }: Props) {
   const [displayName, setDisplayName] = useState(currentUser?.displayName ?? '')
   const [status, setStatus] = useState(currentUser?.status ?? 'online')
   const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl ?? '')
+  const [customStatus, setCustomStatus] = useState(() => localStorage.getItem('guilda-custom-status') || '')
+  const [bannerColor, setBannerColor] = useState(() => localStorage.getItem('guilda-banner-color') || '#5865f2')
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const BANNER_COLORS = ['#5865f2', '#eb459e', '#57f287', '#fee75c', '#ed4245', '#1e1f22', '#3ba55d', '#00a8fc']
 
   if (!currentUser) return null
 
   const hasChanges =
     displayName !== currentUser.displayName ||
     status !== currentUser.status ||
-    avatarUrl !== (currentUser.avatarUrl ?? '')
+    avatarUrl !== (currentUser.avatarUrl ?? '') ||
+    customStatus !== (localStorage.getItem('guilda-custom-status') || '') ||
+    bannerColor !== (localStorage.getItem('guilda-banner-color') || '#5865f2')
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -76,6 +82,8 @@ export function UserSettingsModal({ open, onClose }: Props) {
         credentials: 'include',
       })
       if (res.ok) {
+        localStorage.setItem('guilda-custom-status', customStatus)
+        localStorage.setItem('guilda-banner-color', bannerColor)
         setSaveSuccess(true)
         toast.success('Perfil atualizado com sucesso!')
         setTimeout(() => setSaveSuccess(false), 2500)
@@ -185,7 +193,7 @@ export function UserSettingsModal({ open, onClose }: Props) {
 
                   {/* Profile Card Container */}
                   <div className="rounded-lg bg-[#1e1f22] overflow-hidden border border-[#2b2d31]">
-                    <div className="h-24 bg-[#5865f2] relative" />
+                    <div className="h-24 relative" style={{ background: bannerColor }} />
                     <div className="px-6 pb-6 relative">
                       <div className="flex items-end justify-between -mt-12 mb-4">
                         <div className="relative group">
@@ -262,6 +270,37 @@ export function UserSettingsModal({ open, onClose }: Props) {
                             <option value="dnd">🔴 Não Perturbe</option>
                             <option value="invisible">⚪ Invisível</option>
                           </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-[#b5bac1] block mb-1">
+                            Recado / Status Personalizado
+                          </label>
+                          <input
+                            value={customStatus}
+                            onChange={(e) => setCustomStatus(e.target.value)}
+                            placeholder="O que está acontecendo? (ex: Jogando CS2, Ouvindo música...)"
+                            className="w-full px-3 py-2 rounded bg-[#1e1f22] text-[#f2f3f5] text-sm outline-none border border-[#1e1f22] focus:border-[#5865f2]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-[#b5bac1] block mb-2">
+                            Cor do Banner
+                          </label>
+                          <div className="flex gap-2">
+                            {BANNER_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => setBannerColor(c)}
+                                style={{ background: c }}
+                                className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
+                                  bannerColor === c ? 'ring-2 ring-white scale-110' : 'hover:scale-105'
+                                }`}
+                              />
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>

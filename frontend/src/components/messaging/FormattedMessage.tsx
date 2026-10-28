@@ -55,16 +55,32 @@ function renderInlineMarkdown(text: string): React.ReactNode[] {
     const matched = match[0]
 
     if (matched.startsWith('http://') || matched.startsWith('https://')) {
+      const isImageOrGif =
+        /\.(gif|jpe?g|png|webp)($|\?)/i.test(matched) ||
+        matched.includes('giphy.com/media') ||
+        matched.includes('tenor.com')
+
       parts.push(
-        <a
-          key={match.index}
-          href={matched}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[#00a8fc] hover:underline"
-        >
-          {matched}
-        </a>
+        <span key={match.index} className="inline-block">
+          <a
+            href={matched}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#00a8fc] hover:underline break-all"
+          >
+            {matched}
+          </a>
+          {isImageOrGif && (
+            <div className="mt-1.5 rounded-lg overflow-hidden max-w-sm max-h-80 border border-[#2b2d31] bg-[#1e1f22]">
+              <img
+                src={matched}
+                alt="GIF / Anexo"
+                className="w-full h-auto object-contain rounded"
+                loading="lazy"
+              />
+            </div>
+          )}
+        </span>
       )
     } else if (matched.startsWith('`') && matched.endsWith('`') && matched.length > 2) {
       parts.push(

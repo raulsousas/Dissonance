@@ -65,7 +65,7 @@ export default function UserBar() {
             {currentUser.displayName}
           </span>
           <span className="text-[11px] truncate text-[#949ba4]">
-            Disponível
+            {localStorage.getItem('guilda-custom-status') || 'Disponível'}
           </span>
         </div>
       </button>
