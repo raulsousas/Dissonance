@@ -1,5 +1,7 @@
 import { Volume2, PhoneCall, PhoneOff, Mic, MicOff, Headphones, Video, VideoOff, ScreenShare } from 'lucide-react'
+import * as Avatar from '@radix-ui/react-avatar'
 import { useVoice } from '@/hooks/useVoice'
+import { usePresence } from '@/hooks/usePresence'
 import { ParticipantTile } from '@/components/voice/ParticipantTile'
 
 interface Props {
@@ -26,6 +28,9 @@ export function VoiceChannelPanel({ channelId, serverId, channelName }: Props) {
     isVideoEnabled,
     isScreenSharing,
   } = useVoice()
+
+  const { getUsersInVoiceChannel } = usePresence()
+  const connectedPresenceUsers = getUsersInVoiceChannel(channelId)
 
   const inThisChannel = activeChannelId === channelId && (isConnected || isConnecting)
 
@@ -94,21 +99,62 @@ export function VoiceChannelPanel({ channelId, serverId, channelName }: Props) {
             ))}
           </div>
         ) : (
-          <div className="text-center space-y-3">
-            <Volume2 size={48} className="mx-auto opacity-50" style={{ color: 'var(--color-text-muted)' }} />
-            <h3 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>
-              {channelName}
-            </h3>
-            <p className="text-xs max-w-xs mx-auto" style={{ color: 'var(--color-text-muted)' }}>
-              No one is currently in this voice channel. Click below to start talking.
-            </p>
-            <button
-              onClick={() => joinVoice(channelId, serverId, channelName)}
-              className="mt-2 px-5 py-2 rounded-md text-sm font-semibold transition-opacity hover:opacity-90"
-              style={{ background: 'var(--color-online)', color: '#fff' }}
-            >
-              Connect to Voice
-            </button>
+          <div className="text-center space-y-4 max-w-md w-full p-8 rounded-2xl bg-[#2b2d31] border border-[#1f2023] shadow-xl">
+            {connectedPresenceUsers.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center -space-x-3 overflow-hidden py-1">
+                  {connectedPresenceUsers.map((u) => (
+                    <Avatar.Root
+                      key={u.userId}
+                      className="w-14 h-14 rounded-full border-4 border-[#2b2d31] overflow-hidden bg-[#1e1f22] shadow"
+                    >
+                      <Avatar.Image
+                        src={u.avatarUrl ?? undefined}
+                        alt={u.displayName}
+                        className="w-full h-full object-cover"
+                      />
+                      <Avatar.Fallback className="w-full h-full flex items-center justify-center font-bold text-white bg-[#5865f2] text-lg">
+                        {u.displayName?.[0]?.toUpperCase() ?? '?'}
+                      </Avatar.Fallback>
+                    </Avatar.Root>
+                  ))}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-bold text-[#f2f3f5]">{channelName}</h3>
+                  <p className="text-xs text-[#949ba4] mt-1">
+                    {connectedPresenceUsers.length === 1
+                      ? `${connectedPresenceUsers[0].displayName || '1 usuário'} está conectado nesta sala de voz.`
+                      : `${connectedPresenceUsers.length} usuários conectados nesta sala de voz.`}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => joinVoice(channelId, serverId, channelName)}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold bg-[#23a55a] hover:bg-[#1f914f] text-white transition-all transform hover:scale-[1.02] cursor-pointer shadow-lg"
+                >
+                  <PhoneCall size={18} />
+                  <span>Entrar na Sala de Voz</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <Volume2 size={48} className="mx-auto opacity-50 text-[#949ba4]" />
+                <h3 className="text-base font-bold text-[#f2f3f5]">
+                  {channelName}
+                </h3>
+                <p className="text-xs max-w-xs mx-auto text-[#949ba4]">
+                  Ninguém está conectado nesta sala de voz no momento. Clique abaixo para iniciar a conversa.
+                </p>
+                <button
+                  onClick={() => joinVoice(channelId, serverId, channelName)}
+                  className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold bg-[#23a55a] hover:bg-[#1f914f] text-white transition-all transform hover:scale-[1.02] cursor-pointer shadow"
+                >
+                  <PhoneCall size={16} />
+                  <span>Conectar à Voz</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

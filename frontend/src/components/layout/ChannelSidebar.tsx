@@ -316,6 +316,7 @@ function CategorySection({
             <ChannelRow
               key={ch.id}
               channel={ch}
+              serverId={serverId}
               active={ch.id === channelId}
               onClick={() => navigate(`/app/servers/${serverId}/channels/${ch.id}`)}
               onInvite={() => onOpenInvite(ch)}
@@ -387,11 +388,13 @@ interface VoiceTreeUser {
 
 function ChannelRow({
   channel,
+  serverId,
   active,
   onClick,
   onInvite,
 }: {
   channel: Channel
+  serverId: string
   active: boolean
   onClick: () => void
   onInvite: () => void
@@ -400,6 +403,7 @@ function ChannelRow({
   const isVoice = channel.type === 'voice'
 
   const voiceStore = useVoiceStore()
+  const { joinVoice } = useVoice()
   const { onlineUsers } = usePresence()
 
   const isCurrentVoiceActive =
@@ -442,14 +446,21 @@ function ChannelRow({
 
   const hasConnectedUsers = voiceUsers.length > 0
 
+  function handleRowClick() {
+    onClick()
+    if (isVoice && voiceStore.activeChannelId !== channel.id) {
+      joinVoice(channel.id, serverId, channel.name)
+    }
+  }
+
   return (
     <div className="space-y-0.5">
       <div
-        onClick={onClick}
+        onClick={handleRowClick}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') onClick()
+          if (e.key === 'Enter' || e.key === ' ') handleRowClick()
         }}
         className={`group flex items-center justify-between w-full px-2 py-1.5 rounded text-sm transition-colors text-left cursor-pointer select-none ${
           active
