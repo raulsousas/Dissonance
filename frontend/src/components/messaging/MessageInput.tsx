@@ -6,6 +6,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { SendHorizonal, X, FileText } from 'lucide-react'
 import type { Message, Attachment } from '@/stores/messagingStore'
+import { EmojiPicker } from './EmojiPicker'
 
 interface Props {
   channelName: string
@@ -120,6 +121,22 @@ export function MessageInput({
 
   const overLimit = content.length > MAX_LENGTH
   const canSend = (content.trim().length > 0 || pendingFiles.length > 0) && !overLimit && !disabled
+
+  function handleInsertEmoji(emoji: string) {
+    const textarea = textareaRef.current
+    if (!textarea) {
+      setContent((prev) => prev + emoji)
+      return
+    }
+    const start = textarea.selectionStart ?? content.length
+    const end = textarea.selectionEnd ?? content.length
+    const newContent = content.substring(0, start) + emoji + content.substring(end)
+    setContent(newContent)
+    setTimeout(() => {
+      textarea.focus()
+      textarea.selectionStart = textarea.selectionEnd = start + emoji.length
+    }, 0)
+  }
 
   return (
     <div className="px-4 pb-6 shrink-0">
@@ -245,9 +262,7 @@ export function MessageInput({
           <button title="GIF" className="hover:text-white cursor-pointer transition-colors text-xs font-bold px-1 rounded bg-[#2b2d31]">
             GIF
           </button>
-          <button title="Emoji" className="hover:text-white cursor-pointer transition-colors p-0.5">
-            😀
-          </button>
+          <EmojiPicker onSelectEmoji={handleInsertEmoji} disabled={disabled} />
           <button
             onClick={handleSend}
             disabled={!canSend}

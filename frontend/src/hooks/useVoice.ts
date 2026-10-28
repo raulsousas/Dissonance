@@ -10,6 +10,7 @@ import {
 } from 'livekit-client'
 import { useVoiceStore, type VoiceParticipant } from '@/stores/voiceStore'
 import { updateGlobalVoiceChannel } from '@/hooks/usePresence'
+import { playVoiceJoinSound, playVoiceLeaveSound, playMuteSound } from '@/lib/soundEffects'
 
 let currentRoom: Room | null = null
 let isConnectingLock = false
@@ -120,6 +121,7 @@ export function useVoice() {
         useVoiceStore.getState().setConnected()
         syncRoomParticipants(room)
         updateGlobalVoiceChannel(channelId)
+        playVoiceJoinSound()
       })
 
       room.on(RoomEvent.Disconnected, () => {
@@ -128,6 +130,7 @@ export function useVoice() {
         updateGlobalVoiceChannel(null)
         currentRoom = null
         isConnectingLock = false
+        playVoiceLeaveSound()
       })
 
       room.on(RoomEvent.ParticipantConnected, () => syncRoomParticipants(room))
@@ -199,8 +202,10 @@ export function useVoice() {
   const toggleMute = useCallback(async () => {
     if (!currentRoom) {
       const current = useVoiceStore.getState().isMuted
-      console.info(`[Guilda:Voice] Toggling local mute without room: ${!current}`)
-      useVoiceStore.getState().setMuted(!current)
+      const next = !current
+      console.info(`[Guilda:Voice] Toggling local mute without room: ${next}`)
+      useVoiceStore.getState().setMuted(next)
+      playMuteSound(next)
       return
     }
 
@@ -216,6 +221,7 @@ export function useVoice() {
         await mic.track.unmute()
       }
       useVoiceStore.getState().setMuted(willMute)
+      playMuteSound(willMute)
       syncRoomParticipants(currentRoom)
     } else {
       try {

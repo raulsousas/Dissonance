@@ -9,6 +9,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Pencil, Trash2, Reply, Check, X, FileText, Download } from 'lucide-react'
 import type { Message, Attachment } from '@/stores/messagingStore'
 import { useAuth } from '@/hooks/useAuth'
+import { FormattedMessage } from './FormattedMessage'
 // currentUser from useAuth has camelCase fields
 
 interface Props {
@@ -170,9 +171,7 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
               </div>
             ) : (
               message.content ? (
-                <p className="text-sm break-words whitespace-pre-wrap" style={{ color: 'var(--color-text-primary)' }}>
-                  {message.content}
-                </p>
+                <FormattedMessage content={message.content} />
               ) : null
             )}
 
