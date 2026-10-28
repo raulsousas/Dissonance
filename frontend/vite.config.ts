@@ -23,6 +23,18 @@ export default defineConfig({
       interval: 300,
     },
     proxy: {
+      // Static uploaded files proxied to Phoenix backend
+      '/uploads': {
+        target: BACKEND,
+        changeOrigin: true,
+        secure: false,
+      },
+      // OAuth routes proxied to Phoenix backend
+      '/auth': {
+        target: BACKEND,
+        changeOrigin: true,
+        secure: false,
+      },
       // All /api requests are proxied to the Phoenix backend.
       // changeOrigin: true rewrites the Host header to match the target,
       // which is required for Phoenix to accept the request.

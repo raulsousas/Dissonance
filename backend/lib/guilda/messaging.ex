@@ -19,12 +19,31 @@ defmodule Guilda.Messaging do
   Preloads `:author` and `:reactions` on success.
   """
   def create_message(attrs) do
-    %Message{}
-    |> Message.changeset(attrs)
-    |> Repo.insert()
+    attachments_data = Map.get(attrs, :attachments) || Map.get(attrs, "attachments") || []
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(:message, Message.changeset(%Message{}, attrs))
+    |> Ecto.Multi.run(:attachments, fn repo, %{message: message} ->
+      Enum.reduce_while(attachments_data, {:ok, []}, fn att_attrs, {:ok, acc} ->
+        att_attrs =
+          att_attrs
+          |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+          |> Map.new()
+          |> Map.put("message_id", message.id)
+
+        case repo.insert(Guilda.Messaging.Attachment.changeset(%Guilda.Messaging.Attachment{}, att_attrs)) do
+          {:ok, att} -> {:cont, {:ok, [att | acc]}}
+          {:error, cs} -> {:halt, {:error, cs}}
+        end
+      end)
+    end)
+    |> Repo.transaction()
     |> case do
-      {:ok, msg} -> {:ok, Repo.preload(msg, [:author, reactions: [:user]])}
-      err -> err
+      {:ok, %{message: msg}} ->
+        {:ok, Repo.preload(msg, [:author, :attachments, reactions: [:user]])}
+
+      {:error, _step, error, _changes} ->
+        {:error, error}
     end
   end
 
@@ -56,7 +75,7 @@ defmodule Guilda.Messaging do
         where: m.channel_id == ^channel_id and m.deleted == false,
         order_by: [desc: m.inserted_at, desc: m.id],
         limit: ^limit,
-        preload: [:author, reactions: [:user]]
+        preload: [:author, :attachments, reactions: [:user]]
 
     query =
       if before_id do
@@ -126,20 +145,26 @@ defmodule Guilda.Messaging do
   Upsert the last-read position for a user in a channel.
   """
   def mark_read(channel_id, user_id, message_id) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    case Ecto.UUID.cast(message_id) do
+      {:ok, valid_msg_id} ->
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-    Repo.insert!(
-      %ReadState{
-        channel_id: channel_id,
-        user_id: user_id,
-        last_read_message_id: message_id,
-        last_read_at: now
-      },
-      on_conflict: [set: [last_read_message_id: message_id, last_read_at: now, updated_at: now]],
-      conflict_target: [:channel_id, :user_id]
-    )
+        Repo.insert!(
+          %ReadState{
+            channel_id: channel_id,
+            user_id: user_id,
+            last_read_message_id: valid_msg_id,
+            last_read_at: now
+          },
+          on_conflict: [set: [last_read_message_id: valid_msg_id, last_read_at: now, updated_at: now]],
+          conflict_target: [:channel_id, :user_id]
+        )
 
-    :ok
+        :ok
+
+      _ ->
+        :ok
+    end
   end
 
   @doc "Get the read state for a user in a channel. Returns nil if never read."

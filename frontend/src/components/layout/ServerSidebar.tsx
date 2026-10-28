@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Avatar from '@radix-ui/react-avatar'
-import { Plus, Hash, Compass } from 'lucide-react'
+import { Plus, Compass } from 'lucide-react'
 import { useServers, useCreateServer, useJoinServer, type Server } from '@/hooks/useServers'
 
 interface Props {
@@ -15,93 +15,121 @@ export default function ServerSidebar({ selectedServerId }: Props) {
 
   return (
     <nav
-      className="flex flex-col items-center gap-2 py-3 w-full"
+      className="flex flex-col items-center gap-2 py-3 w-full min-h-full"
       style={{ background: 'var(--color-bg-primary)' }}
       aria-label="Servers"
     >
-      {/* DM button */}
-      <SidebarIcon
-        label="Direct Messages"
+      {/* Discord / DM Home button */}
+      <HomePillButton
         active={!selectedServerId}
         onClick={() => navigate('/app/dm')}
-      >
-        <Hash size={20} />
-      </SidebarIcon>
+      />
 
-      <div className="w-8 h-px mx-auto" style={{ background: 'var(--color-border)' }} />
+      <div className="w-8 h-[2px] mx-auto rounded my-0.5" style={{ background: 'rgba(255,255,255,0.08)' }} />
 
       {/* Server list */}
-      {servers.map((s) => (
-        <ServerIcon
-          key={s.id}
-          server={s}
-          active={s.id === selectedServerId}
-          onClick={() => navigate(`/app/servers/${s.id}`)}
-        />
-      ))}
+      <div className="flex flex-col items-center gap-2 w-full">
+        {servers.map((s) => (
+          <ServerIcon
+            key={s.id}
+            server={s}
+            active={s.id === selectedServerId}
+            onClick={() => navigate(`/app/servers/${s.id}`)}
+          />
+        ))}
+      </div>
 
-      <div className="w-8 h-px mx-auto" style={{ background: 'var(--color-border)' }} />
+      <div className="w-8 h-[2px] mx-auto rounded my-0.5" style={{ background: 'rgba(255,255,255,0.08)' }} />
 
-      {/* Add / join server */}
+      {/* Add server */}
       <AddServerButton />
+
+      {/* Explore Compass */}
+      <ActionButton
+        label="Explore Discoverable Servers"
+        icon={<Compass size={20} />}
+        hoverColor="var(--color-online)"
+      />
     </nav>
+  )
+}
+
+function HomePillButton({ active, onClick }: { active: boolean; onClick: () => void }) {
+  return (
+    <div className="relative group flex items-center justify-center w-full">
+      {/* Sliding white indicator pill */}
+      <span
+        className={`absolute left-0 w-1 bg-white rounded-r transition-all duration-200 ${
+          active
+            ? 'h-10 opacity-100'
+            : 'h-2 opacity-0 group-hover:opacity-100 group-hover:h-5'
+        }`}
+      />
+      <button
+        onClick={onClick}
+        title="Direct Messages"
+        aria-label="Direct Messages"
+        className={`relative w-12 h-12 flex items-center justify-center transition-all duration-200 cursor-pointer ${
+          active
+            ? 'rounded-2xl bg-[#5865f2] text-white shadow-md'
+            : 'rounded-[24px] bg-[#313338] text-[#dbdee1] hover:rounded-2xl hover:bg-[#5865f2] hover:text-white'
+        }`}
+      >
+        {/* Discord Controller Icon */}
+        <svg width="26" height="20" viewBox="0 0 127.14 96.36" fill="currentColor">
+          <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,45.91,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,45.91,96.12,53,91.08,65.69,84.69,65.69Z" />
+        </svg>
+      </button>
+    </div>
   )
 }
 
 function ServerIcon({ server, active, onClick }: { server: Server; active: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      title={server.name}
-      aria-label={server.name}
-      aria-current={active ? 'page' : undefined}
-      className="group relative flex items-center"
-    >
-      {/* Active indicator */}
+    <div className="relative group flex items-center justify-center w-full">
+      {/* Sliding white indicator pill */}
       <span
-        className="absolute left-0 w-1 rounded-r transition-all"
-        style={{
-          background: 'var(--color-text-primary)',
-          height: active ? '36px' : '8px',
-          opacity: active ? 1 : 0,
-        }}
+        className={`absolute left-0 w-1 bg-white rounded-r transition-all duration-200 ${
+          active
+            ? 'h-10 opacity-100'
+            : 'h-2 opacity-0 group-hover:opacity-100 group-hover:h-5'
+        }`}
       />
-      <Avatar.Root
-        className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center transition-all group-hover:rounded-2xl"
-        style={{
-          background: active ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
-          borderRadius: active ? '16px' : '50%',
-          transition: 'border-radius 0.15s ease, background 0.15s ease',
-        }}
+      <button
+        onClick={onClick}
+        title={server.name}
+        aria-label={server.name}
+        aria-current={active ? 'page' : undefined}
+        className={`relative w-12 h-12 flex items-center justify-center transition-all duration-200 cursor-pointer overflow-hidden ${
+          active
+            ? 'rounded-2xl bg-[#5865f2] text-white shadow-md'
+            : 'rounded-[24px] bg-[#313338] text-[#dbdee1] hover:rounded-2xl hover:bg-[#5865f2] hover:text-white'
+        }`}
       >
-        <Avatar.Image src={server.iconUrl ?? undefined} alt={server.name} className="w-full h-full object-cover" />
-        <Avatar.Fallback
-          className="text-sm font-bold"
-          style={{ color: active ? '#fff' : 'var(--color-text-primary)' }}
-        >
-          {server.name[0]?.toUpperCase()}
-        </Avatar.Fallback>
-      </Avatar.Root>
-    </button>
+        <Avatar.Root className="w-full h-full flex items-center justify-center">
+          <Avatar.Image src={server.iconUrl ?? undefined} alt={server.name} className="w-full h-full object-cover" />
+          <Avatar.Fallback className="text-sm font-semibold tracking-wide">
+            {server.name.split(' ').map(w => w[0]).slice(0, 3).join('').toUpperCase()}
+          </Avatar.Fallback>
+        </Avatar.Root>
+      </button>
+    </div>
   )
 }
 
-function SidebarIcon({ label, active, onClick, children }: { label: string; active: boolean; onClick: () => void; children: React.ReactNode }) {
+function ActionButton({ label, icon, hoverColor }: { label: string; icon: React.ReactNode; hoverColor: string }) {
   return (
-    <button
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className="w-12 h-12 rounded-full flex items-center justify-center transition-all hover:rounded-2xl"
-      style={{
-        background: active ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
-        color: active ? '#fff' : 'var(--color-text-muted)',
-        borderRadius: active ? '16px' : '50%',
-        transition: 'border-radius 0.15s ease, background 0.15s ease',
-      }}
-    >
-      {children}
-    </button>
+    <div className="relative group flex items-center justify-center w-full">
+      <span className="absolute left-0 w-1 bg-white rounded-r transition-all duration-200 h-2 opacity-0 group-hover:opacity-100 group-hover:h-5" />
+      <button
+        title={label}
+        aria-label={label}
+        className="w-12 h-12 rounded-[24px] bg-[#313338] text-[#23a55a] flex items-center justify-center transition-all duration-200 hover:rounded-2xl hover:bg-[#23a55a] hover:text-white cursor-pointer"
+        style={{ color: hoverColor }}
+      >
+        {icon}
+      </button>
+    </div>
   )
 }
 
@@ -112,19 +140,16 @@ function AddServerButton() {
   return (
     <Dialog.Root open={open} onOpenChange={(v) => { setOpen(v); if (!v) setMode('choose') }}>
       <Dialog.Trigger asChild>
-        <button
-          title="Add a server"
-          aria-label="Add a server"
-          className="w-12 h-12 rounded-full flex items-center justify-center transition-all hover:rounded-2xl"
-          style={{
-            background: 'var(--color-bg-secondary)',
-            color: 'var(--color-online)',
-            borderRadius: '50%',
-            transition: 'border-radius 0.15s ease',
-          }}
-        >
-          <Plus size={24} />
-        </button>
+        <div className="relative group flex items-center justify-center w-full">
+          <span className="absolute left-0 w-1 bg-white rounded-r transition-all duration-200 h-2 opacity-0 group-hover:opacity-100 group-hover:h-5" />
+          <button
+            title="Add a server"
+            aria-label="Add a server"
+            className="w-12 h-12 rounded-[24px] bg-[#313338] text-[#23a55a] flex items-center justify-center transition-all duration-200 hover:rounded-2xl hover:bg-[#23a55a] hover:text-white cursor-pointer"
+          >
+            <Plus size={22} />
+          </button>
+        </div>
       </Dialog.Trigger>
 
       <Dialog.Portal>

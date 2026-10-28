@@ -5,8 +5,9 @@
 
 import { useState, useRef } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import { Pencil, Trash2, Reply, Check, X } from 'lucide-react'
-import type { Message } from '@/stores/messagingStore'
+import * as Dialog from '@radix-ui/react-dialog'
+import { Pencil, Trash2, Reply, Check, X, FileText, Download } from 'lucide-react'
+import type { Message, Attachment } from '@/stores/messagingStore'
 import { useAuth } from '@/hooks/useAuth'
 // currentUser from useAuth has camelCase fields
 
@@ -32,9 +33,9 @@ function formatDate(iso: string) {
   const yesterday = new Date(today)
   yesterday.setDate(today.getDate() - 1)
 
-  if (d.toDateString() === today.toDateString()) return 'Today'
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday'
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+  if (d.toDateString() === today.toDateString()) return `Hoje às ${formatTime(iso)}`
+  if (d.toDateString() === yesterday.toDateString()) return `Ontem às ${formatTime(iso)}`
+  return `${d.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' })} ${formatTime(iso)}`
 }
 
 export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact, onReply }: Props) {
@@ -84,7 +85,7 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>
         <div
-          className={`px-4 py-0.5 flex items-start gap-3 group rounded hover:bg-white/5 transition-colors ${
+          className={`relative px-4 py-0.5 flex items-start gap-3 group rounded hover:bg-[#2e3035]/60 transition-colors ${
             message.pending ? 'opacity-60' : message.failed ? 'opacity-40' : ''
           }`}
         >
@@ -106,19 +107,19 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
           {/* Body */}
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 mb-0.5">
-              <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+              <span className="text-sm font-semibold text-[#00a8fc] hover:underline cursor-pointer">
                 {message.authorName ?? 'Unknown'}
               </span>
-              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {formatDate(message.insertedAt)} at {formatTime(message.insertedAt)}
+              <span className="text-[11px] text-[#949ba4]">
+                {formatDate(message.insertedAt)}
               </span>
               {message.editedAt && (
-                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  (edited)
+                <span className="text-[10px] text-[#949ba4]">
+                  (editado)
                 </span>
               )}
               {message.failed && (
-                <span className="text-xs text-red-400">Failed to send</span>
+                <span className="text-xs text-red-400">Falha ao enviar</span>
               )}
             </div>
 
@@ -168,9 +169,24 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
                 </div>
               </div>
             ) : (
-              <p className="text-sm break-words whitespace-pre-wrap" style={{ color: 'var(--color-text-primary)' }}>
-                {message.content}
-              </p>
+              message.content ? (
+                <p className="text-sm break-words whitespace-pre-wrap" style={{ color: 'var(--color-text-primary)' }}>
+                  {message.content}
+                </p>
+              ) : null
+            )}
+
+            {/* Attachments */}
+            {message.attachments && message.attachments.length > 0 && (
+              <div className="flex flex-col gap-2 mt-2 max-w-lg">
+                {message.attachments.map((att) => (
+                  <AttachmentView
+                    key={att.id || att.url}
+                    attachment={att}
+                    messagePending={message.pending}
+                  />
+                ))}
+              </div>
             )}
 
             {/* Reactions */}
@@ -207,8 +223,8 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
             )}
           </div>
 
-          {/* Quick-react / action buttons on hover */}
-          <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+          {/* Quick-react / action buttons on hover (Discord floating bar) */}
+          <div className="hidden group-hover:flex items-center gap-0.5 absolute right-4 -top-3 z-10 bg-[#313338] border border-[#232428] rounded-md px-1 py-0.5 shadow-md">
             {QUICK_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
@@ -217,7 +233,7 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
                     ? onRemoveReact(message.id, emoji)
                     : onReact(message.id, emoji)
                 }
-                className="text-base p-1 rounded hover:bg-white/10 transition-colors"
+                className="text-sm p-1 rounded hover:bg-white/10 transition-colors cursor-pointer"
                 title={`React with ${emoji}`}
               >
                 {emoji}
@@ -225,7 +241,7 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
             ))}
             <button
               onClick={() => onReply(message)}
-              className="p-1 rounded hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
               title="Reply"
             >
               <Reply size={14} style={{ color: 'var(--color-text-muted)' }} />
@@ -234,14 +250,14 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
               <>
                 <button
                   onClick={() => { setEditing(true); setEditContent(message.content) }}
-                  className="p-1 rounded hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
                   title="Edit"
                 >
                   <Pencil size={14} style={{ color: 'var(--color-text-muted)' }} />
                 </button>
                 <button
                   onClick={() => onDelete(message.id)}
-                  className="p-1 rounded hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
                   title="Delete"
                 >
                   <Trash2 size={14} className="text-red-400" />
@@ -297,5 +313,126 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>
+  )
+}
+
+function formatFileSize(bytes: number) {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+}
+
+function AttachmentView({ attachment, messagePending }: { attachment: Attachment; messagePending?: boolean }) {
+  const isUploading = messagePending && (attachment.progress === undefined || attachment.progress < 100)
+
+  if (isUploading) {
+    return (
+      <div className="flex flex-col justify-between p-3 rounded-lg bg-[#2b2d31] text-[#dbdee1] border border-[#1f2023] min-w-[280px] max-w-[340px]">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-11 rounded bg-[#5865f2]/15 flex items-center justify-center shrink-0">
+            <FileText size={24} className="text-[#8592ff]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-[#f2f3f5] truncate" title={attachment.filename}>
+              {attachment.filename}
+            </p>
+            <p className="text-[11px] text-[#949ba4] mt-0.5">
+              {formatFileSize(attachment.size)}
+            </p>
+          </div>
+        </div>
+
+        {/* Discord Progress Bar (Image 2 style) */}
+        <div className="mt-3 w-full bg-[#1e1f22] rounded-full h-1.5 overflow-hidden">
+          <div
+            className="bg-[#5865f2] h-full rounded-full transition-all duration-150"
+            style={{ width: `${Math.max(attachment.progress ?? 10, 10)}%` }}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  const isImage = attachment.contentType?.startsWith('image/')
+  const [modalOpen, setModalOpen] = useState(false)
+
+  if (isImage) {
+    return (
+      <>
+        <div className="rounded-lg overflow-hidden max-w-[550px] max-h-[380px] bg-[#1e1f22] border border-[#2b2d31] inline-flex items-center justify-center">
+          <img
+            src={attachment.url}
+            alt={attachment.filename}
+            onClick={() => setModalOpen(true)}
+            className="max-w-full max-h-[380px] rounded-lg object-contain cursor-pointer hover:opacity-95 transition-opacity block"
+            loading="lazy"
+          />
+        </div>
+
+        {/* Full Image Preview Modal */}
+        <Dialog.Root open={modalOpen} onOpenChange={setModalOpen}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+              <Dialog.Content className="relative max-w-4xl max-h-[90vh] flex flex-col items-center outline-none">
+                <img
+                  src={attachment.url}
+                  alt={attachment.filename}
+                  className="max-w-full max-h-[80vh] rounded-md object-contain"
+                />
+                <div className="flex items-center justify-between w-full pt-3 text-xs text-[#dbdee1]">
+                  <span className="truncate max-w-[300px]">{attachment.filename}</span>
+                  <a
+                    href={attachment.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    download={attachment.filename}
+                    className="text-[#5865f2] hover:underline"
+                  >
+                    Abrir original / Download
+                  </a>
+                </div>
+              </Dialog.Content>
+            </Dialog.Overlay>
+          </Dialog.Portal>
+        </Dialog.Root>
+      </>
+    )
+  }
+
+  // Non-image file card
+  const formattedSize = formatFileSize(attachment.size)
+
+  return (
+    <div className="flex items-center justify-between p-3 rounded-lg bg-[#2b2d31] border border-[#1e1f22] max-w-sm">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="p-2 rounded bg-[#1e1f22] text-[#949ba4]">
+          <FileText size={24} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <a
+            href={attachment.url}
+            target="_blank"
+            rel="noreferrer"
+            download={attachment.filename}
+            className="text-xs font-semibold text-[#00a8fc] hover:underline truncate block"
+          >
+            {attachment.filename}
+          </a>
+          <span className="text-[11px] text-[#949ba4]">{formattedSize}</span>
+        </div>
+      </div>
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        download={attachment.filename}
+        className="p-1.5 rounded text-[#b5bac1] hover:text-white hover:bg-[#35373c] transition-colors ml-2"
+        title="Download"
+      >
+        <Download size={18} />
+      </a>
+    </div>
   )
 }

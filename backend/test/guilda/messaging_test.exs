@@ -59,7 +59,7 @@ defmodule Guilda.MessagingTest do
       refute msg.deleted
     end
 
-    test "rejects empty content" do
+    test "rejects empty content when there are no attachments" do
       user = insert_user()
       server = insert_server(user)
       channel = insert_channel(server)
@@ -72,6 +72,31 @@ defmodule Guilda.MessagingTest do
                })
 
       assert %{content: _} = cs.errors |> Enum.into(%{})
+    end
+
+    test "creates message with attachments only and no text content" do
+      user = insert_user()
+      server = insert_server(user)
+      channel = insert_channel(server)
+
+      assert {:ok, msg} =
+               Messaging.create_message(%{
+                 content: "",
+                 channel_id: channel.id,
+                 author_id: user.id,
+                 attachments: [
+                   %{
+                     "url" => "/uploads/test.jpg",
+                     "filename" => "test.jpg",
+                     "size" => 1234,
+                     "contentType" => "image/jpeg"
+                   }
+                 ]
+               })
+
+      assert length(msg.attachments) == 1
+      assert hd(msg.attachments).filename == "test.jpg"
+      assert hd(msg.attachments).content_type == "image/jpeg"
     end
 
     test "rejects content over 4000 chars" do

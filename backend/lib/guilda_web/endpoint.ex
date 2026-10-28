@@ -23,6 +23,11 @@ defmodule GuildaWeb.Endpoint do
     gzip: false,
     only: GuildaWeb.static_paths()
 
+  plug Plug.Static,
+    at: "/uploads",
+    from: Path.expand("priv/static/uploads"),
+    gzip: false
+
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 

@@ -71,6 +71,10 @@ defmodule GuildaWeb.Router do
     pipe_through [:api, :require_auth]
 
     get "/me", AccountController, :me
+    patch "/me", AccountController, :update
+
+    # Uploads (Phase 7)
+    post "/upload", UploadController, :create
 
     # Servers
     get    "/servers",          ServerController, :index
@@ -94,6 +98,29 @@ defmodule GuildaWeb.Router do
     # Messages (Phase 4)
     get    "/channels/:channel_id/messages", MessagesController, :index
     post   "/channels/:channel_id/messages", MessagesController, :create
+
+    # Friends (Phase 5)
+    get    "/friends",               FriendsController, :index
+    get    "/friends/requests",      FriendsController, :list_requests
+    post   "/friends/requests",      FriendsController, :create_request
+    post   "/friends/requests/:id/accept", FriendsController, :accept_request
+    delete "/friends/requests/:id",  FriendsController, :decline_request
+    delete "/friends/:id",           FriendsController, :delete
+
+    # Direct Messages (Phase 5)
+    get    "/dm",                    DmController, :index
+    post   "/dm",                    DmController, :create
+    get    "/dm/:id",                DmController, :show
+    get    "/dm/:id/messages",       DmController, :list_messages
+    post   "/dm/:id/messages",       DmController, :create_message
+
+    # Presence (Phase 5)
+    get    "/presence",              PresenceController, :index
+    get    "/users/:id/presence",    PresenceController, :show
+
+    # Voice (Phase 6)
+    post   "/channels/:channel_id/voice/token", VoiceController, :token
+    post   "/channels/:channel_id/voice/leave", VoiceController, :leave
   end
 
   # ---------------------------------------------------------------------------

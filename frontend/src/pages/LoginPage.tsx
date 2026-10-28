@@ -60,7 +60,7 @@ export default function LoginPage() {
 
         {/* Google SSO button */}
         <a
-          href={`${import.meta.env.VITE_API_URL ?? 'http://localhost:4000'}/auth/google`}
+          href="/auth/google"
           className="flex items-center justify-center gap-3 w-full py-3 px-4 rounded-md font-medium text-sm transition-opacity hover:opacity-90 focus:outline-none focus:ring-2"
           style={{
             background: '#ffffff',

@@ -1,68 +1,56 @@
-# Security
+# Diretrizes e Mecanismos de Segurança (Guilda)
 
-This document summarises the security measures in place in Guilda. It is updated as new protections are implemented.
-
----
-
-## Authentication
-
-- **Google OAuth 2.0 / OpenID Connect only.** No passwords are stored or handled by Guilda.
-- The backend validates the OAuth `state` parameter to prevent CSRF on the callback.
-- ID tokens from Google are verified before trusting any claims.
-- Sessions are stored server-side. The client receives only an opaque session token via an HttpOnly, SameSite=Lax cookie (Secure flag enabled in production).
-
-## Access Control
-
-- **Allowlist-based.** Having a Google account is not enough — users must be explicitly approved by an admin or hold a valid invite link.
-- The allowlist is enforced on the server. Frontend-only access checks are not relied upon.
-- The first admin is set via the `FIRST_ADMIN_EMAIL` environment variable, not through the UI.
-
-## Authorisation
-
-- Every API endpoint and Phoenix Channel event validates that the requesting user has the appropriate role and server/channel membership before performing any action.
-- Resource ownership checks prevent IDOR (Insecure Direct Object Reference) attacks — changing a UUID in a request URL or body does not grant access to another user's data.
-- Role permissions are stored as a bitmask in the database and checked server-side on every mutating operation.
-
-## Input Validation
-
-- All incoming data is validated through Ecto changesets before touching the database.
-- Ecto uses parameterised queries — SQL injection is not possible through Ecto's standard query interface.
-
-## XSS and CSRF
-
-- The API is JSON-only; no server-rendered HTML with user content is produced.
-- Phoenix sets `x-content-type-options: nosniff` and `content-security-policy` headers by default.
-- The frontend sanitises any user-generated content before rendering.
-- Non-GET API requests require a valid session cookie. The SameSite=Lax policy prevents cross-site form submissions from carrying the cookie.
-
-## File Uploads
-
-- Maximum file size: 25 MB per file (configurable via `MAX_UPLOAD_BYTES`).
-- Uploaded files are validated by MIME type against an allowlist.
-- Files are stored in S3-compatible object storage (LocalStack locally, real S3/R2 in production), not on the application server's local filesystem.
-- Presigned URLs are used to serve files; the application server does not proxy file downloads.
-
-## Rate Limiting
-
-- Rate limiting is applied to: the OAuth callback endpoint, invite consumption, message sending, and file upload endpoints.
-
-## Secrets and Logging
-
-- All secrets are loaded from environment variables. No secrets appear in source code.
-- Logs filter out sensitive parameters (`password`, `token`, cookie values).
-- Errors returned to clients are generic; internal details are logged server-side only.
-
-## Transport Security
-
-- In production, HTTPS is required and enforced via `force_ssl` in Phoenix configuration.
-- WebRTC (LiveKit) also requires HTTPS in production.
-
-## CORS
-
-- CORS is restricted to the configured `FRONTEND_URL` origin.
+Este documento resume as práticas, arquitetura e proteções de segurança implementadas no Guilda.
 
 ---
 
-## Reporting Security Issues
+## 1. Autenticação e Sessões
 
-This is a private application. If you discover a security issue, contact the repository owner directly rather than opening a public issue.
+- **Google OAuth 2.0 (OpenID Connect):**
+  - Autenticação sem armazenamento ou gestão de senhas locais.
+  - O fluxo OAuth valida o token e o e-mail retornado pela API oficial do Google.
+- **Sessões HTTP-Only:**
+  - Cookies de sessão emitidos com flags `HttpOnly`, `SameSite=Lax` (ou `Strict`) e `Secure` (em produção via HTTPS).
+  - Tokens de sessão armazenados no PostgreSQL com hash seguro (SHA-256) e data de expiração.
+- **Revogação Instantânea de Acesso:**
+  - O administrador pode revogar todas as sessões ativas de qualquer usuário através do endpoint protegido `DELETE /api/admin/users/:id/access`.
+
+---
+
+## 2. Autorização e Controle de Acesso (RBAC)
+
+- **Allowlist & Convites:**
+  - Registro de novos usuários requer que o e-mail esteja na allowlist ou que o acesso seja feito através de um código de convite válido gerado por um membro autorizado.
+- **Bitmask de Permissões de Servidor:**
+  - Sistema de permissões baseado em máscara de bits por cargo (Roles) validado no backend Phoenix antes de qualquer mutação em canais, mensagens ou configurações de servidor.
+- **Proteção de Rotas Administrativas:**
+  - O plug `GuildaWeb.Plugs.RequireAdminPlug` bloqueia requisições a `/api/admin/*` com código HTTP `403 Forbidden` caso o usuário não possua `role == "admin"`.
+
+---
+
+## 3. Proteção no Armazenamento de Arquivos e Uploads
+
+- **Validação de Tipos MIME & Tamanho:**
+  - Limite máximo configurável (`MAX_UPLOAD_BYTES`, padrão: 25 MB).
+  - Validação de extensões e tipos de conteúdo suportados (imagens PNG, JPG, GIF, WebP, vídeos MP4/WebM, áudios e documentos comuns).
+- **Armazenamento Seguro em S3:**
+  - Arquivos são salvos com identificadores UUID aleatórios no S3 / MinIO / LocalStack, evitando ataques de sobrescrita ou path traversal (`../`).
+  - URLs de download são geradas com cabeçalhos apropriados de tipo e `Content-Disposition`.
+
+---
+
+## 4. Proteção contra Injeção e Sanitização de Conteúdo
+
+- **Ecto Parameterized Queries:**
+  - 100% das consultas ao banco de dados PostgreSQL utilizam consultas parametrizadas via Ecto, eliminando vulnerabilidades de SQL Injection.
+- **Prevenção de XSS:**
+  - O frontend React trata todo o conteúdo de mensagens como strings puras escapadas no DOM, prevenindo execução de scripts arbitrários.
+- **Prevenção de CSRF:**
+  - Endpoints de mutação utilizam proteção CSRF e validação de `Origin` / `Referer`.
+
+---
+
+## 5. WebRTC e Criptografia em Trânsito
+
+- Toda a comunicação WebRTC de áudio e vídeo trafega criptografada ponta a ponta (DTLS-SRTP).
+- Tokens JWT de acesso a salas de voz possuem validade curta e permissões restritas ao canal em questão.

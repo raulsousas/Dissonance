@@ -12,12 +12,22 @@ if config_env() != :test do
   # Google OAuth credentials — loaded at runtime so they can be injected
   # via environment variables without rebuilding the image.
   if google_client_id = System.get_env("GOOGLE_CLIENT_ID") do
+    redirect_uri = System.get_env("GOOGLE_REDIRECT_URI") ||
+      raise("GOOGLE_REDIRECT_URI must be set when GOOGLE_CLIENT_ID is provided")
+
+    config :ueberauth, Ueberauth,
+      providers: [
+        google: {Ueberauth.Strategy.Google, [
+          default_scope: "openid email profile",
+          callback_url: redirect_uri
+        ]}
+      ]
+
     config :ueberauth, Ueberauth.Strategy.Google.OAuth,
       client_id: google_client_id,
       client_secret: System.get_env("GOOGLE_CLIENT_SECRET") ||
         raise("GOOGLE_CLIENT_SECRET must be set when GOOGLE_CLIENT_ID is provided"),
-      redirect_uri: System.get_env("GOOGLE_REDIRECT_URI") ||
-        raise("GOOGLE_REDIRECT_URI must be set when GOOGLE_CLIENT_ID is provided")
+      redirect_uri: redirect_uri
   end
 
   config :guilda, Guilda.Repo,

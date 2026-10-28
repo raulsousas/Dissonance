@@ -12,6 +12,17 @@ export interface Reaction {
   userIds: string[]
 }
 
+export interface Attachment {
+  id: string
+  url: string
+  filename: string
+  size: number
+  contentType: string
+  width?: number | null
+  height?: number | null
+  progress?: number
+}
+
 export interface Message {
   id: string
   content: string
@@ -23,6 +34,7 @@ export interface Message {
   editedAt: string | null
   deleted: boolean
   reactions: Reaction[]
+  attachments?: Attachment[]
   insertedAt: string
   /** Optimistic: true while waiting for server ack */
   pending?: boolean
@@ -94,12 +106,47 @@ export const useMessagingStore = create<MessagingState>((set) => ({
     })),
 
   appendMessage: (channelId, message) =>
-    set((s) => ({
-      messages: {
-        ...s.messages,
-        [channelId]: [...(s.messages[channelId] ?? []), message],
-      },
-    })),
+    set((s) => {
+      const current = s.messages[channelId] ?? []
+
+      if (!message.pending) {
+        // 1. If already in list with same id, update in place
+        const existingById = current.findIndex((m) => m.id === message.id)
+        if (existingById !== -1) {
+          const updated = [...current]
+          updated[existingById] = { ...current[existingById], ...message, pending: false }
+          return { messages: { ...s.messages, [channelId]: updated } }
+        }
+
+        // 2. Replace matching pending optimistic message from the same author
+        const msgContent = (message.content ?? '').trim()
+        const pendingIdx = current.findIndex((m) => {
+          if (!m.pending || m.authorId !== message.authorId) return false
+          const mContent = (m.content ?? '').trim()
+          if (mContent === msgContent) return true
+          if ((m.attachments?.length ?? 0) > 0 && (message.attachments?.length ?? 0) > 0) return true
+          return false
+        })
+
+        if (pendingIdx !== -1) {
+          const updated = [...current]
+          updated[pendingIdx] = { ...message, pending: false }
+          return { messages: { ...s.messages, [channelId]: updated } }
+        }
+      } else {
+        // Avoid duplicate temp messages
+        if (current.some((m) => m.id === message.id)) {
+          return s
+        }
+      }
+
+      return {
+        messages: {
+          ...s.messages,
+          [channelId]: [...current, message],
+        },
+      }
+    }),
 
   updateMessage: (channelId, messageId, patch) =>
     set((s) => ({

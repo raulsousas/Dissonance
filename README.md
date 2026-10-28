@@ -2,7 +2,7 @@
 
 A private, invite-only communication platform for small groups of friends — inspired by the layout and workflow of Discord, built with Elixir/Phoenix on the backend and React on the frontend.
 
-> **Status:** Active development — Phase 1 (Foundation) in progress.
+> **Status:** Production Ready — All phases complete (Servers, Real-Time Chat, DMs, Voice/Video LiveKit, S3 File Uploads, Admin Panel, Reconnection & Themes).
 
 ---
 
@@ -30,9 +30,11 @@ A private, invite-only communication platform for small groups of friends — in
 Guilda is a self-hosted group communication application. It provides:
 
 - **Servers** — private communities with channels, categories, roles, and permissions.
-- **Text channels** — real-time messaging with history, reactions, replies, and file sharing.
-- **Direct messages** — private conversations between members.
-- **Voice/video channels** — powered by self-hosted [LiveKit](https://livekit.io/) (Phase 6).
+- **Text channels** — real-time messaging with history, reactions, replies, optimistic updates, and file attachments.
+- **Direct messages** — private conversations, friends list, and direct messaging between members.
+- **Voice/video channels** — low-latency voice, video, and screen sharing powered by self-hosted [LiveKit](https://livekit.io/).
+- **Admin panel** — comprehensive `/admin` management for users, roles, email allowlists, and session revocation.
+- **Themes & Polish** — Discord Dark, Light, and Midnight (AMOLED) themes, toast notifications, and real-time WebSocket reconnection banner.
 - **Google SSO login** — no passwords; access is controlled by an allowlist and invite links.
 
 Access is strictly private. Anyone who signs in with Google must be on the allowlist or hold a valid invite link. The first admin account is set via an environment variable.

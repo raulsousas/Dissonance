@@ -99,6 +99,6 @@ describe('MessageInput', () => {
     render(<MessageInput {...defaultProps} disabled={true} />)
     const textarea = screen.getByRole('textbox', { name: /message input/i })
     expect(textarea).toBeDisabled()
-    expect(textarea).toHaveAttribute('placeholder', expect.stringContaining('permission'))
+    expect(textarea.getAttribute('placeholder')).toMatch(/permiss[ãa]o|permission/i)
   })
 })

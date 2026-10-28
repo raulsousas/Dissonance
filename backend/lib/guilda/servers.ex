@@ -103,6 +103,18 @@ defmodule Guilda.Servers do
       })
       |> Repo.insert!()
 
+      # Automatically seed default category and channel
+      {:ok, category} =
+        Guilda.Channels.create_category(server, %{name: "General", position: 0})
+
+      {:ok, _channel} =
+        Guilda.Channels.create_channel(server, %{
+          name: "general",
+          type: "text",
+          category_id: category.id,
+          position: 0
+        })
+
       server
     end)
   end

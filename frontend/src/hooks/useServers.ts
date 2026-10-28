@@ -103,6 +103,31 @@ export function useLeaveServer() {
   })
 }
 
+export function useDeleteServer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (serverId: string) =>
+      apiFetch(`/api/servers/${serverId}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['servers'] }),
+  })
+}
+
+export function useUpdateServer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ serverId, attrs }: { serverId: string; attrs: { name?: string; description?: string } }) =>
+      apiFetch<Server>(`/api/servers/${serverId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(attrs),
+      }),
+    onSuccess: (_data, { serverId }) => {
+      qc.invalidateQueries({ queryKey: ['servers'] })
+      qc.invalidateQueries({ queryKey: ['server', serverId] })
+    },
+  })
+}
+
 // ── Channels ─────────────────────────────────────────────────────────────────
 
 export function useChannels(serverId: string | null) {
@@ -117,11 +142,15 @@ export function useChannels(serverId: string | null) {
 export function useCreateChannel() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ serverId, attrs }: { serverId: string; attrs: { name: string; type?: string; categoryId?: string } }) =>
+    mutationFn: ({ serverId, attrs }: { serverId: string; attrs: { name: string; type?: string; categoryId?: string; category_id?: string } }) =>
       apiFetch<Channel>(`/api/servers/${serverId}/channels`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(attrs),
+        body: JSON.stringify({
+          name: attrs.name,
+          type: attrs.type ?? 'text',
+          category_id: attrs.category_id ?? attrs.categoryId,
+        }),
       }),
     onSuccess: (_data, { serverId }) => qc.invalidateQueries({ queryKey: ['channels', serverId] }),
   })
@@ -159,6 +188,17 @@ export function useCreateInvite() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(opts ?? {}),
+      }),
+    onSuccess: (_data, { serverId }) => qc.invalidateQueries({ queryKey: ['invites', serverId] }),
+  })
+}
+
+export function useDeleteInvite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ serverId, code }: { serverId: string; code: string }) =>
+      apiFetch(`/api/servers/${serverId}/invites/${code}`, {
+        method: 'DELETE',
       }),
     onSuccess: (_data, { serverId }) => qc.invalidateQueries({ queryKey: ['invites', serverId] }),
   })

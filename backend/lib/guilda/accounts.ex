@@ -80,6 +80,13 @@ defmodule Guilda.Accounts do
     end
   end
 
+  @doc "Update user profile attributes (display_name, avatar_url, status)."
+  def update_user(%User{} = user, attrs) do
+    user
+    |> User.update_changeset(attrs)
+    |> Repo.update()
+  end
+
   defp update_user_profile(%User{} = user, profile) do
     attrs = %{
       display_name: profile.display_name,
@@ -87,7 +94,7 @@ defmodule Guilda.Accounts do
     }
 
     user
-    |> User.changeset(attrs)
+    |> User.update_changeset(attrs)
     |> Repo.update()
   end
 

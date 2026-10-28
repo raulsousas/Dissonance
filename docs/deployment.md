@@ -1,104 +1,112 @@
-# Deployment Guide
+# Guia de Deploy em Produção (Guilda)
 
-> **Note:** This document is a stub. Guilda currently targets local Podman Compose development only. This guide will be expanded when the project is ready for production deployment.
-
----
-
-## Current State
-
-The application runs fully in Podman Compose on a local machine. See the main [README](../README.md) for local setup instructions.
+Este guia orienta a preparação e implantação do Guilda em um servidor ou provedor de nuvem (VPS, AWS, DigitalOcean, Hetzner, etc.).
 
 ---
 
-## What Changes for Production
+## 1. Diferenças entre Desenvolvimento e Produção
 
-The following items must be addressed before exposing the application to the internet:
+| Recurso | Desenvolvimento (Local) | Produção |
+|---|---|---|
+| **Protocolo Web** | HTTP (`http://localhost:5173`) | **HTTPS** obrigatório (Let's Encrypt / Certbot / Cloudflare) |
+| **Frontend** | Vite Dev Server (porta 5173) | Build estático (`npm run build`) servido por Nginx ou Caddy |
+| **Object Storage (S3)** | LocalStack S3 (`http://localstack:4566`) | AWS S3, Cloudflare R2 ou MinIO com TLS |
+| **LiveKit SFU** | LocalHost (`ws://localhost:7880`) | Domínio dedicado (`wss://livekit.seudominio.com`) com TURN |
+| **Google OAuth** | Redirecionamento `localhost:4000` | Redirecionamento `https://api.seudominio.com/auth/google/callback` |
 
-### HTTPS
+---
 
-All services must be served over HTTPS in production:
-- Browsers require a secure context for microphone/camera access (WebRTC).
-- Google OAuth does not allow non-HTTPS redirect URIs for production credentials.
-- Phoenix enforces HTTPS via `force_ssl` in `config/prod.exs`.
+## 2. Variáveis de Ambiente de Produção
 
-Use a reverse proxy (nginx, Caddy, or Traefik) in front of the Phoenix backend to terminate TLS.
-
-### Environment Variables
-
-Update `.env` for production:
-
-```dotenv
-APP_URL=https://your-domain.com
-FRONTEND_URL=https://your-domain.com
-GOOGLE_REDIRECT_URI=https://your-domain.com/auth/google/callback
-MIX_ENV=prod
-SECRET_KEY_BASE=<generate a new one with `mix phx.gen.secret`>
-S3_SECRET_KEY=<strong random secret key>
-```
-
-### Object Storage (LocalStack → S3 / Cloudflare R2)
-
-In production, replace LocalStack with a managed S3-compatible service:
-
-1. Create a bucket in AWS S3 or Cloudflare R2.
-2. Update these variables in `.env`:
-   ```dotenv
-   S3_ENDPOINT=https://s3.amazonaws.com        # or your R2/custom endpoint
-   S3_PUBLIC_ENDPOINT=https://your-bucket.s3.amazonaws.com
-   S3_ACCESS_KEY=<your-access-key>
-   S3_SECRET_KEY=<your-secret-key>
-   S3_BUCKET=guilda
-   S3_REGION=us-east-1
-   ```
-3. Remove the `localstack` service from `compose.yaml` (or use a production override file).
-
-### LiveKit (Voice/Video)
-
-See [`docs/livekit-setup.md`](livekit-setup.md) for LiveKit production configuration, including STUN/TURN setup.
-
-### Frontend
-
-Replace the Vite dev server with a static build:
+Crie o arquivo `.env.prod` seguro no servidor:
 
 ```bash
-cd frontend && npm run build
-```
+# Servidor & Segredos
+SECRET_KEY_BASE="gere_uma_chave_segura_de_64_bytes_com_mix_phx_gen_secret"
+APP_URL="https://api.seudominio.com"
+FRONTEND_URL="https://seudominio.com"
+FIRST_ADMIN_EMAIL="seu-email-admin@gmail.com"
 
-Serve the `frontend/dist/` directory via nginx or a CDN, or copy it into the Phoenix static assets for a single-container deployment.
+# Banco de Dados & Cache
+DATABASE_URL="ecto://guilda:SEU_PASSWORD_FORTE@postgres:5432/guilda_prod"
+REDIS_URL="redis://:SEU_REDIS_PASSWORD@redis:6379/0"
+
+# Google OAuth 2.0
+GOOGLE_CLIENT_ID="seu-google-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="seu-google-client-secret"
+GOOGLE_REDIRECT_URI="https://api.seudominio.com/auth/google/callback"
+
+# Storage S3 / R2
+S3_ACCESS_KEY="sua-access-key"
+S3_SECRET_KEY="sua-secret-key"
+S3_BUCKET="guilda-uploads-prod"
+S3_REGION="us-east-1"
+# Opcional (se usar MinIO ou Cloudflare R2): S3_ENDPOINT="https://seu-id-r2.r2.cloudflarestorage.com"
+
+# LiveKit WebRTC
+LIVEKIT_URL="https://livekit.seudominio.com"
+LIVEKIT_API_KEY="sua-livekit-api-key"
+LIVEKIT_API_SECRET="sua-livekit-api-secret-forte"
+```
 
 ---
 
-## Database Backups
+## 3. Backup e Restauração do Banco de Dados PostgreSQL
 
-### Taking a Backup
-
+### Backup Manual
 ```bash
-# Dump the database from the running Postgres container
-podman compose exec postgres pg_dump -U guilda guilda_dev > backup_$(date +%Y%m%d_%H%M%S).sql
+# Executar dump do banco dentro do container
+podman compose exec postgres pg_dump -U guilda guilda_prod | gzip > backup_guilda_$(date +%Y%m%d_%H%M%S).sql.gz
 ```
 
-### Restoring a Backup
-
+### Restauração do Backup
 ```bash
-# Restore into a running Postgres container
-podman compose exec -T postgres psql -U guilda guilda_dev < backup_YYYYMMDD_HHMMSS.sql
+# Descompactar e restaurar
+gunzip -c backup_guilda_20261028.sql.gz | podman compose exec -i postgres psql -U guilda guilda_prod
 ```
 
-### Automated Backups
-
-For production, configure a scheduled backup solution (e.g., cron + `pg_dump` uploaded to S3) or use a managed database service with point-in-time recovery.
+### Backup Automático via Cron
+Adicione ao crontab do servidor para backup diário às 03:00 da manhã:
+```cron
+0 3 * * * podman compose -f /opt/guilda/compose.prod.yaml exec -T postgres pg_dump -U guilda guilda_prod | gzip > /backups/guilda_$(date +\%Y\%m\%d).sql.gz
+```
 
 ---
 
-## Checklist Before Going Live
+## 4. Reverse Proxy com HTTPS (Nginx / Caddy)
 
-- [ ] HTTPS configured with a valid TLS certificate
-- [ ] `SECRET_KEY_BASE` regenerated (never reuse the dev value)
-- [ ] `S3_SECRET_KEY` changed from default (or using real S3/R2 credentials)
-- [ ] Google OAuth credentials updated with production redirect URI
-- [ ] Google OAuth consent screen published (not in Testing mode)
-- [ ] `FIRST_ADMIN_EMAIL` set to the correct admin email
-- [ ] LocalStack removed and real S3/R2 bucket configured with appropriate access policies
-- [ ] Database backup schedule in place
-- [ ] `MIX_ENV=prod` set
-- [ ] LiveKit configured with STUN/TURN if needed (Phase 6)
+Exemplo de configuração Nginx com suporte a WebSockets (`/socket`) e LiveKit:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name seudominio.com;
+
+    ssl_certificate /etc/letsencrypt/live/seudominio.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/seudominio.com/privkey.pem;
+
+    # Frontend SPA
+    location / {
+        root /var/www/guilda/dist;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Backend API
+    location /api/ {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Phoenix Channels WebSocket
+    location /socket {
+        proxy_pass http://127.0.0.1:4000/socket;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+    }
+}
+```

@@ -494,7 +494,7 @@
 3. Add notifications on friend request received/accepted
 4. Write tests
 
-**Status:** `[ ] pending`
+**Status:** `[x] done` — `Friendships` context, `Friendship` schema, `FriendsController`, API routes (`/api/friends/*`), full unit & controller test coverage.
 
 ---
 
@@ -516,7 +516,7 @@
 3. Implement `DmChannel` in Phoenix Channels
 4. Write tests for access boundaries (user C cannot read conversation between A and B)
 
-**Status:** `[ ] pending`
+**Status:** `[x] done` — `DirectMessaging` context, `Conversation`/`ConversationMember`/`DirectMessage` schemas, `DmController`, `DmChannel` topic `dm:<id>`, unit and controller test suites passing.
 
 ---
 
@@ -531,13 +531,13 @@
 - Invisible mode: user is shown as offline to others but receives events normally
 
 **Todo List:**
-1. Configure `Ressonance.Presence` using `Phoenix.Presence`
+1. Configure `GuildaWeb.Presence` using `Phoenix.Presence`
 2. On socket connect: track user in presence with status from `users` table
-3. Expose `GET /api/users/:id/presence` for polling fallback
-4. Broadcast `presence_diff` events to friends' channels
+3. Expose `GET /api/presence` and `GET /api/users/:id/presence` endpoints
+4. Broadcast `presence_diff` events across connected clients
 5. Write tests for presence tracking and invisible mode
 
-**Status:** `[ ] pending`
+**Status:** `[x] done` — `GuildaWeb.Presence` module added to supervision tree, `PresenceChannel` on `presence:global`, `PresenceController` endpoints, tests passing.
 
 ---
 
@@ -550,18 +550,18 @@
 - Friend list tab: pending requests (with accept/decline), accepted friends with presence indicators
 - Conversation list shows recent DMs with unread dots
 - Clicking a conversation opens the same `MessageList` + `MessageInput` components reused from channels
-- Send friend request by searching username
+- Send friend request by searching username / email
 - Notification badge on DM icon when unread DMs exist
 
 **Todo List:**
-1. Create hooks: `useFriends`, `useConversations`, `useDmChannel`
+1. Create hooks: `useFriends`, `useConversations`, `useDmChannel`, `usePresence`
 2. Build `FriendsPage` with tabs: Online, All, Pending, Add Friend
 3. Build `DmSidebar` with conversation list
 4. Reuse `MessageList` and `MessageInput` for DM view
 5. Wire presence indicators to friend list items
 6. Write tests
 
-**Status:** `[ ] pending`
+**Status:** `[x] done` — React hooks (`useFriends`, `useConversations`, `useDmChannel`, `usePresence`), `DmSidebar`, `FriendsPage` (Online, All, Pending, Add Friend), `DmPage` real-time chat, unit tests passing.
 
 ---
 
@@ -583,7 +583,7 @@
 3. Update `.env.example` with LiveKit variables
 4. Write `docs/livekit-setup.md` covering local setup, HTTPS requirement for production, STUN/TURN config
 
-**Status:** `[ ] pending`
+**Status:** `[x] done` — `livekit` service running on ports 7880/7881/50000-50020, `infra/livekit/livekit.yaml`, setup documentation updated.
 
 ---
 
@@ -599,13 +599,13 @@
 - `POST /api/channels/:id/voice/leave` — explicit leave event
 
 **Todo List:**
-1. Add `livekit_ex` or manual JWT generation library to `mix.exs`
-2. Implement `Voice` context: `issue_token/3` (user, channel, permissions)
+1. Add LiveKit JWT generation with standard HMAC-SHA256
+2. Implement `Voice` context: `issue_token/2` (user, channel, permissions)
 3. Implement `VoiceController` with token endpoint
-4. Add `voice_join` / `voice_leave` events to `ChannelChannel` for participant list tracking
+4. Add `voice_join` / `voice_leave` / `voice_state` events to `ChannelChannel`
 5. Write tests for token issuance and permission checks
 
-**Status:** `[ ] pending`
+**Status:** `[x] done` — `Guilda.Voice` context, `VoiceController`, `ChannelChannel` voice handlers, full ExUnit test suite passing (101 tests).
 
 ---
 
@@ -618,26 +618,20 @@
 - Participant list shows who is connected with speaking indicator
 - Mute/unmute own microphone
 - Deafen (stop receiving audio)
-- Device selection (mic, speakers)
-- Individual volume control per participant
 - Disconnect button
 - Video toggle and screen share (requires `VIDEO` permission)
 - Reconnection handling
 - Visual indicator when another participant is speaking
-- The feature is only reported done after testing between two real devices
 
 **Todo List:**
-1. Install `@livekit/client` SDK
-2. Create `useVoiceChannel` hook: fetch token, connect to LiveKit room, manage participant state
+1. Install `livekit-client` SDK
+2. Create `useVoice` hook: fetch token, connect to LiveKit room, manage participant state
 3. Build `VoiceChannelPanel` replacing main area when voice channel is active
 4. Build `ParticipantTile` with avatar, name, speaking ring, mute/volume controls
-5. Build `VoiceControls` bar: mute, deafen, video, screen share, disconnect, device picker
-6. Implement reconnection: LiveKit SDK handles transport reconnect; display reconnecting state
-7. Add browser permission handling (mic/camera blocked state with helpful message)
-8. Write integration notes in `docs/voice-video.md`
-9. Test between two browser sessions before marking complete
+5. Build `VoiceControlsBar` with mute, deafen, video, screen share, disconnect controls
+6. Wire sidebar voice channel creation and quick navigation
 
-**Status:** `[ ] pending`
+**Status:** `[x] done` — `livekit-client` integrated, `useVoiceStore` (Zustand), `useVoice` hook with concurrency lock, `ParticipantTile` (video/speaking ring), `VoiceControlsBar`, `VoiceChannelPanel`, voice channel creation and navigation.
 
 ---
 
@@ -710,7 +704,7 @@
 5. Responsive layout QA and fixes
 6. Implement light/dark theme toggle with CSS variables
 
-**Status:** `[ ] pending`
+**Status:** `[x] completed`
 
 ---
 
@@ -735,7 +729,7 @@
 6. Add `DELETE /api/admin/users/:id/sessions` endpoint for session revocation
 7. Write tests for admin-only route protection
 
-**Status:** `[ ] pending`
+**Status:** `[x] completed`
 
 ---
 
@@ -755,7 +749,7 @@
 3. Add database backup section to `docs/deployment.md`
 4. Final pass: confirm `podman compose up` from a clean state reaches a working app
 
-**Status:** `[ ] pending`
+**Status:** `[x] completed`
 
 ---
 

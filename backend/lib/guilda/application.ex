@@ -12,6 +12,9 @@ defmodule Guilda.Application do
       # PubSub
       {Phoenix.PubSub, name: Guilda.PubSub},
 
+      # Presence tracker
+      GuildaWeb.Presence,
+
       # Redix connection pool for Redis
       {Redix, {System.get_env("REDIS_URL", "redis://localhost:6379"), [name: :redix]}},
 

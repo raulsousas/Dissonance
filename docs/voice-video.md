@@ -1,39 +1,34 @@
-# Voice and Video Architecture
+# Arquitetura de Canais de Voz e Vídeo (WebRTC + LiveKit)
 
-> **Note:** Voice and video (Phase 6) are not yet implemented. This document describes the planned architecture.
+Este documento descreve como o áudio, vídeo, compartilhamento de tela e controles de voz funcionam no Guilda.
 
 ---
 
-## Approach
+## 1. Visão Geral da Arquitetura
 
-Guilda uses [LiveKit](https://livekit.io/) as the self-hosted WebRTC infrastructure. This avoids implementing a custom SFU from scratch while keeping the infrastructure under your control.
+O Guilda adota um modelo híbrido:
+1. **Sinalização e Metadados:** Trafegam via Phoenix Channels (`ChannelChannel` e `UserSocket`) para sincronizar a lista de membros conectados na sala, status de microfone (mutado/desmutado), ensurdecimento e permissões.
+2. **Mídia de Alta Performance (SFU):** Trafega diretamente entre o navegador do usuário e o servidor LiveKit via WebRTC (UDP).
 
-- **Media transport:** WebRTC, managed by LiveKit.
-- **Signalling and room events:** Phoenix Channels (WebSocket) for participant join/leave events visible in the UI.
-- **Authorization:** Phoenix backend issues short-lived LiveKit JWT tokens. Only users with the `CONNECT_VOICE` permission for a given channel may obtain a token.
+```
+   [ Usuário A ] ── WebRTC (Opus/VP8/H.264) ──► [ LiveKit SFU ] ── WebRTC ──► [ Usuário B ]
+         │                                                                            ▲
+         │                                                                            │
+         └──── Phoenix Channels (Presença, Mute, Volume, Ações) ──────────────────────┘
+```
 
-## What is NOT used for media
+---
 
-Phoenix Channels and WebSocket messages are used for signalling (participant lists, mute events, etc.) — **not** for carrying audio or video data. All media bytes go directly from browser to LiveKit via WebRTC.
+## 2. Controles de Áudio do Usuário
 
-## Planned Features
+Na barra inferior (`UserBar.tsx` e `VoiceControlsBar.tsx`):
+- **Mutar / Desmutar Microfone:** Controla localmente a track de microfone (`audioTrack.mute() / unmute()`) e emite o evento para os demais membros.
+- **Ensurdecer (Deafen):** Muta o microfone e suspende o áudio recebido de todos os outros participantes.
+- **Indicador de Fala (Green Ring):** O LiveKit emite eventos de `activeSpeakerObserver` com medição de decibéis em tempo real, acionando o anel verde luminoso ao redor do avatar do participante que está falando.
 
-- Join/leave voice channels
-- Participant list with speaking indicators
-- Mute/unmute microphone
-- Deafen (stop receiving audio)
-- Per-participant volume control
-- Device selection (microphone, speakers)
-- Video toggle
-- Screen sharing (requires `VIDEO` permission)
-- Reconnection handling
+---
 
-## Browser Requirements
+## 3. Compartilhamento de Tela e Câmera
 
-- HTTPS in production (mandatory for microphone/camera access)
-- Permission prompt: browser will ask for microphone (and camera for video)
-- Modern browser with WebRTC support (all current browsers qualify)
-
-## Testing
-
-Voice and video will only be marked as complete after successful testing between two real devices on separate networks.
+- O botão de vídeo ativa a captura de `navigator.mediaDevices.getUserMedia({ video: true })` e publica a faixa de vídeo para o LiveKit.
+- O botão de compartilhamento de tela ativa `navigator.mediaDevices.getDisplayMedia()` e transmite o stream com resolução adaptativa e áudio do sistema operacional compartilhado.

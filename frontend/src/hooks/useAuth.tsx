@@ -8,6 +8,7 @@ export interface CurrentUser {
   avatarUrl: string | null
   status: 'online' | 'away' | 'dnd' | 'invisible' | 'offline'
   role: 'member' | 'admin'
+  token?: string | null
 }
 
 interface AuthContextValue {

@@ -3,15 +3,17 @@ import { useAuth } from '@/hooks/useAuth'
 
 interface Props {
   children: React.ReactNode
+  requireAdmin?: boolean
 }
 
 /**
  * Wraps any route that requires authentication.
  * While auth state is loading, shows nothing (prevents flash).
  * If the user is not authenticated, redirects to /login.
+ * If requireAdmin is true and role !== 'admin', redirects to /app.
  */
-export default function ProtectedRoute({ children }: Props) {
-  const { isAuthenticated, isLoading } = useAuth()
+export default function ProtectedRoute({ children, requireAdmin }: Props) {
+  const { currentUser, isAuthenticated, isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -23,6 +25,10 @@ export default function ProtectedRoute({ children }: Props) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
+  }
+
+  if (requireAdmin && currentUser?.role !== 'admin') {
+    return <Navigate to="/app" replace />
   }
 
   return <>{children}</>

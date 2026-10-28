@@ -22,6 +22,7 @@ defmodule GuildaWeb.ChannelChannel do
   """
 
   use Phoenix.Channel
+  require Logger
 
   alias Guilda.{Channels, Servers, Messaging}
   alias Guilda.Servers.Permissions
@@ -35,10 +36,12 @@ defmodule GuildaWeb.ChannelChannel do
     user = socket.assigns[:current_user]
 
     if is_nil(user) do
+      Logger.warning("[ChannelChannel] Join rejected: unauthenticated channel_id=#{channel_id}")
       {:error, %{reason: "unauthenticated"}}
     else
       case Channels.get_channel_with_server(channel_id) do
         nil ->
+          Logger.warning("[ChannelChannel] Join rejected: channel not found channel_id=#{channel_id}")
           {:error, %{reason: "channel_not_found"}}
 
         channel ->
@@ -46,6 +49,7 @@ defmodule GuildaWeb.ChannelChannel do
           membership = Servers.get_membership(server, user)
 
           if is_nil(membership) do
+            Logger.warning("[ChannelChannel] Join rejected: not a member channel_id=#{channel_id} user_id=#{user.id}")
             {:error, %{reason: "not_a_member"}}
           else
             socket =
@@ -58,6 +62,7 @@ defmodule GuildaWeb.ChannelChannel do
             read_state = Messaging.get_read_state(channel_id, user.id)
             last_read_id = read_state && read_state.last_read_message_id
 
+            Logger.info("[ChannelChannel] User joined channel_id=#{channel_id} user_id=#{user.id}")
             {:ok, %{last_read_message_id: last_read_id}, socket}
           end
       end
@@ -69,27 +74,36 @@ defmodule GuildaWeb.ChannelChannel do
   # ---------------------------------------------------------------------------
 
   @impl true
-  def handle_in("new_message", %{"content" => content} = payload, socket) do
+  def handle_in("new_message", payload, socket) do
     user = socket.assigns.current_user
     membership = socket.assigns.membership
+    channel_id = socket.assigns.channel_id
+    attachments = Map.get(payload, "attachments", [])
+
+    Logger.info("[ChannelChannel] new_message received channel_id=#{channel_id} user_id=#{user.id} attachments_count=#{length(attachments)}")
 
     unless can_send?(membership, socket.assigns.server) do
+      Logger.warning("[ChannelChannel] new_message rejected: insufficient permissions channel_id=#{channel_id} user_id=#{user.id}")
       {:reply, {:error, %{reason: "insufficient_permissions"}}, socket}
     else
       attrs = %{
-        content: content,
-        channel_id: socket.assigns.channel_id,
+        content: Map.get(payload, "content", ""),
+        channel_id: channel_id,
         author_id: user.id,
-        reply_to_id: Map.get(payload, "reply_to_id")
+        reply_to_id: Map.get(payload, "reply_to_id"),
+        attachments: attachments
       }
 
       case Messaging.create_message(attrs) do
         {:ok, message} ->
+          Logger.info("[ChannelChannel] Message created msg_id=#{message.id} channel_id=#{channel_id} attachments=#{length(message.attachments || [])}")
           broadcast!(socket, "new_message", serialize_message(message))
           {:reply, {:ok, %{id: message.id}}, socket}
 
         {:error, changeset} ->
-          {:reply, {:error, %{reason: format_errors(changeset)}}, socket}
+          errors = format_errors(changeset)
+          Logger.error("[ChannelChannel] Message creation failed errors=#{inspect(errors)} channel_id=#{channel_id}")
+          {:reply, {:error, %{reason: errors}}, socket}
       end
     end
   end
@@ -212,7 +226,52 @@ defmodule GuildaWeb.ChannelChannel do
   def handle_in("mark_read", %{"message_id" => message_id}, socket) do
     user = socket.assigns.current_user
     channel_id = socket.assigns.channel_id
-    Messaging.mark_read(channel_id, user.id, message_id)
+
+    case Ecto.UUID.cast(message_id) do
+      {:ok, valid_id} ->
+        Messaging.mark_read(channel_id, user.id, valid_id)
+
+      _ ->
+        :ok
+    end
+
+    {:reply, :ok, socket}
+  end
+
+  # ---------------------------------------------------------------------------
+  # voice events
+  # ---------------------------------------------------------------------------
+
+  def handle_in("voice_join", payload, socket) do
+    user = socket.assigns.current_user
+    broadcast!(socket, "voice_user_joined", %{
+      userId: user.id,
+      displayName: user.display_name,
+      avatarUrl: user.avatar_url,
+      muted: Map.get(payload, "muted", false),
+      deafened: Map.get(payload, "deafened", false),
+      video: Map.get(payload, "video", false),
+      screenShare: Map.get(payload, "screenShare", false)
+    })
+    {:reply, :ok, socket}
+  end
+
+  def handle_in("voice_leave", _payload, socket) do
+    user = socket.assigns.current_user
+    broadcast!(socket, "voice_user_left", %{userId: user.id})
+    {:reply, :ok, socket}
+  end
+
+  def handle_in("voice_state", payload, socket) do
+    user = socket.assigns.current_user
+    broadcast!(socket, "voice_state_updated", %{
+      userId: user.id,
+      muted: Map.get(payload, "muted"),
+      deafened: Map.get(payload, "deafened"),
+      video: Map.get(payload, "video"),
+      screenShare: Map.get(payload, "screenShare"),
+      speaking: Map.get(payload, "speaking")
+    })
     {:reply, :ok, socket}
   end
 
@@ -226,6 +285,20 @@ defmodule GuildaWeb.ChannelChannel do
   end
 
   defp serialize_message(msg) do
+    attachments =
+      (msg.attachments || [])
+      |> Enum.map(fn att ->
+        %{
+          id: att.id,
+          url: att.url,
+          filename: att.filename,
+          size: att.size,
+          contentType: att.content_type,
+          width: att.width,
+          height: att.height
+        }
+      end)
+
     %{
       id: msg.id,
       content: msg.content,
@@ -237,6 +310,7 @@ defmodule GuildaWeb.ChannelChannel do
       editedAt: msg.edited_at,
       deleted: msg.deleted,
       reactions: serialize_reactions(msg.reactions),
+      attachments: attachments,
       insertedAt: msg.inserted_at
     }
   end

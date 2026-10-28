@@ -10,7 +10,7 @@ config :guilda, GuildaWeb.Endpoint,
 config :guilda, Guilda.Repo,
   username: "guilda",
   password: "guilda",
-  hostname: System.get_env("POSTGRES_HOST", "localhost"),
+  hostname: System.get_env("POSTGRES_HOST", "postgres"),
   database: "guilda_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10

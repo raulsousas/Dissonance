@@ -25,13 +25,16 @@ config :guilda, Guilda.Repo,
 # Ueberauth Google OAuth
 config :ueberauth, Ueberauth,
   providers: [
-    google: {Ueberauth.Strategy.Google, [default_scope: "openid email profile"]}
+    google: {Ueberauth.Strategy.Google, [
+      default_scope: "openid email profile",
+      callback_url: System.get_env("GOOGLE_REDIRECT_URI", "http://localhost:4000/auth/google/callback")
+    ]}
   ]
 
 config :ueberauth, Ueberauth.Strategy.Google.OAuth,
   client_id: System.get_env("GOOGLE_CLIENT_ID"),
   client_secret: System.get_env("GOOGLE_CLIENT_SECRET"),
-  redirect_uri: System.get_env("GOOGLE_REDIRECT_URI")
+  redirect_uri: System.get_env("GOOGLE_REDIRECT_URI", "http://localhost:4000/auth/google/callback")
 
 # ExAws (S3 / LocalStack in dev, real S3 in prod)
 # Runtime values are loaded in config/runtime.exs from env vars.

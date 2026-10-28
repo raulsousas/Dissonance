@@ -1,8 +1,25 @@
+import { useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useChannels } from '@/hooks/useServers'
+
 /**
  * Welcome / empty state shown when no channel is selected.
- * Real content added in Phase 4.
+ * Automatically navigates to the first channel if channels exist on the selected server.
  */
 export default function WelcomePage() {
+  const { serverId } = useParams<{ serverId?: string }>()
+  const { data: categories = [] } = useChannels(serverId ?? null)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (serverId && categories.length > 0) {
+      const firstChannel = categories.flatMap((c) => c.channels)[0]
+      if (firstChannel) {
+        navigate(`/app/servers/${serverId}/channels/${firstChannel.id}`, { replace: true })
+      }
+    }
+  }, [serverId, categories, navigate])
+
   return (
     <div className="flex-1 flex items-center justify-center h-full">
       <div className="text-center space-y-3">

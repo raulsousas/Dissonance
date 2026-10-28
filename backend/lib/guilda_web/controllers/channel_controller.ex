@@ -19,7 +19,7 @@ defmodule GuildaWeb.ChannelController do
            name: params["name"],
            type: params["type"] || "text",
            topic: params["topic"],
-           category_id: params["category_id"],
+           category_id: params["category_id"] || params["categoryId"],
            position: params["position"] || 0
          },
          {:ok, channel} <- Channels.create_channel(conn.assigns.server, attrs) do

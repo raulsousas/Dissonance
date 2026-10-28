@@ -32,9 +32,10 @@ defmodule Guilda.Messaging.Attachment do
   end
 
   @required ~w(url filename size content_type message_id)a
-  @optional ~w(width height)a
+  @optional ~w(id width height)a
 
   def changeset(attachment, attrs) do
+    attrs = normalize_attrs(attrs)
     max_bytes = String.to_integer(System.get_env("MAX_UPLOAD_BYTES") || "26214400")
 
     attachment
@@ -45,4 +46,16 @@ defmodule Guilda.Messaging.Attachment do
     |> validate_inclusion(:content_type, @allowed_content_types)
     |> assoc_constraint(:message)
   end
+
+  defp normalize_attrs(attrs) when is_map(attrs) do
+    attrs
+    |> Enum.map(fn
+      {"contentType", v} -> {"content_type", v}
+      {:contentType, v} -> {"content_type", v}
+      {k, v} -> {to_string(k), v}
+    end)
+    |> Map.new()
+  end
+
+  defp normalize_attrs(attrs), do: attrs
 end

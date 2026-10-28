@@ -88,6 +88,24 @@ services:
       start_period: 15s
 
   # --------------------------------------------------------------------------
+  # LiveKit WebRTC Server (Voice & Video)
+  # --------------------------------------------------------------------------
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml", "--node-ip", "${LIVEKIT_NODE_IP:-192.168.0.11}"]
+    environment:
+      - NODE_IP=${LIVEKIT_NODE_IP:-192.168.0.11}
+      - LIVEKIT_RTC_ENABLE_LOOPBACK_CANDIDATE=true
+      - LIVEKIT_RTC_NODE_IP_IPV4=${LIVEKIT_NODE_IP:-192.168.0.11}
+    volumes:
+      - ./infra/livekit/livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50020:50000-50020/udp"
+
+  # --------------------------------------------------------------------------
   # Phoenix backend (Elixir 1.18.3 / OTP 27.3)
   # --------------------------------------------------------------------------
   backend:
@@ -114,6 +132,9 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:4000/auth/google/callback}
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-26214400}
+      LIVEKIT_URL: ${LIVEKIT_URL:-http://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       MIX_ENV: dev
       PHX_HOST: localhost
       PORT: 4000
@@ -151,6 +172,7 @@ services:
       # Inside the container network, the backend is reachable via service name.
       # The Vite proxy uses this to forward /api and /socket requests.
       VITE_API_URL: http://backend:4000
+      VITE_LIVEKIT_URL: ws://localhost:7880
     volumes:
       - ./frontend:/app
       # Avoid overwriting the container's node_modules with the host's

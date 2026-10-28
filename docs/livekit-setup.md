@@ -1,57 +1,51 @@
-# LiveKit Setup
+# Configuração do LiveKit (Canais de Voz e Vídeo)
 
-> **Note:** LiveKit is added to the project in Phase 6 (Voice and Video). This document is a stub — it will be expanded when Phase 6 begins.
-
----
-
-## What is LiveKit?
-
-[LiveKit](https://livekit.io/) is an open-source WebRTC infrastructure platform. Guilda uses a self-hosted LiveKit server to manage voice and video rooms, participants, and media transport — avoiding the need to build a custom SFU (Selective Forwarding Unit).
+O Guilda utiliza o [LiveKit](https://livekit.io/) como servidor SFU (Selective Forwarding Unit) WebRTC open-source para transmissão de áudio, vídeo e compartilhamento de tela com baixa latência.
 
 ---
 
-## Architecture Overview
+## 1. Arquitetura Local (Podman / Docker)
 
+O LiveKit roda como um serviço conteinerizado no `compose.yaml`:
+
+```yaml
+livekit:
+  image: docker.io/livekit/livekit-server:latest
+  command: --config /etc/livekit.yaml
+  ports:
+    - "7880:7880"         # WebSocket / HTTP API
+    - "7881:7881"         # WebRTC TCP fallback
+    - "50000-50020:50000-50020/udp" # WebRTC UDP Media Ports
+  volumes:
+    - ./infra/livekit.yaml:/etc/livekit.yaml:ro
 ```
-Browser ──WebRTC──► LiveKit Server (Docker)
-              ▲
-              │ token
-              │
-           Phoenix Backend
-```
-
-- The **Phoenix backend** issues short-lived JWT access tokens for rooms.
-- The **browser** uses the LiveKit JS SDK to connect to the LiveKit server directly.
-- **WebSocket** (Phoenix Channels) handles signalling and participant presence events in Guilda's UI.
-- **Media** (audio/video) is transported directly between the browser and LiveKit over WebRTC — not through Phoenix.
 
 ---
 
-## Requirements for Voice/Video
+## 2. Configuração de Variáveis de Ambiente
 
-- **HTTPS in production:** WebRTC requires a secure context. Browsers will refuse microphone/camera access on non-HTTPS pages (except `localhost`).
-- **STUN server:** Required for NAT traversal. LiveKit defaults to using Google's public STUN server (`stun.l.google.com:19302`) in development.
-- **TURN server:** Required when STUN is insufficient (e.g., symmetric NAT). For production deployment behind a firewall, configure a TURN server (e.g., [coturn](https://github.com/coturn/coturn)) in LiveKit's configuration.
+No `.env`:
 
----
-
-## Local Development Configuration
-
-When Phase 6 is implemented, a `livekit` service will be added to `compose.yaml` and configured at `infra/livekit/livekit.yaml`.
-
-Environment variables to be added to `.env.example`:
-
-```dotenv
-LIVEKIT_URL=ws://localhost:7880
+```bash
+LIVEKIT_URL=http://localhost:7880
 LIVEKIT_API_KEY=devkey
-LIVEKIT_API_SECRET=devsecret_change_in_production
+LIVEKIT_API_SECRET=secretsecretsecretsecretsecretsecret
 ```
 
 ---
 
-## Useful Resources
+## 3. Fluxo de Conexão em Canais de Voz
 
-- [LiveKit documentation](https://docs.livekit.io/)
-- [LiveKit self-hosting guide](https://docs.livekit.io/home/self-hosting/local/)
-- [LiveKit JavaScript SDK](https://github.com/livekit/client-sdk-js)
-- [coturn TURN server](https://github.com/coturn/coturn)
+1. **Entrada no Canal:** O usuário clica em um canal do tipo `voice` no Discord/Guilda.
+2. **Geração do Token:** O frontend faz requisição `POST /api/channels/:id/voice/token` para o backend Phoenix.
+3. **Validação:** O backend valida permissões do usuário no servidor e gera um JWT assinado com `LIVEKIT_API_SECRET` contendo as claims da sala (`room: channel_id`, identidade do usuário, permissões de publicação de áudio/vídeo).
+4. **Conexão WebRTC:** O frontend inicializa `livekit-client` (`Room.connect(url, token)`), conectando microfone, câmera ou compartilhamento de tela.
+5. **Presence & Mute State:** Estados de fala (speaking indicator), microfone mutado e ensurdecimento são sincronizados em tempo real via Phoenix Channel e LiveKit track events.
+
+---
+
+## 4. Requisitos para Produção (TURN / STUN)
+
+Em ambiente de produção atrás de NAT restritivo ou firewall corporativo:
+- É necessário configurar um servidor **STUN/TURN** (como coturn ou o serviço TURN do próprio LiveKit Cloud).
+- Abrir a faixa de portas UDP (padrão: `50000-60000/udp`) no firewall/security group do provedor de nuvem.

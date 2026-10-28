@@ -41,6 +41,20 @@ defmodule GuildaWeb.MessagesController do
         %{emoji: emoji, count: length(list), userIds: Enum.map(list, & &1.user_id)}
       end)
 
+    attachments =
+      (msg.attachments || [])
+      |> Enum.map(fn att ->
+        %{
+          id: att.id,
+          url: att.url,
+          filename: att.filename,
+          size: att.size,
+          contentType: att.content_type,
+          width: att.width,
+          height: att.height
+        }
+      end)
+
     %{
       id: msg.id,
       content: msg.content,
@@ -52,6 +66,7 @@ defmodule GuildaWeb.MessagesController do
       editedAt: msg.edited_at,
       deleted: msg.deleted,
       reactions: reactions,
+      attachments: attachments,
       insertedAt: msg.inserted_at
     }
   end
@@ -104,7 +119,8 @@ defmodule GuildaWeb.MessagesController do
             content: params["content"],
             channel_id: channel_id,
             author_id: user.id,
-            reply_to_id: params["reply_to_id"]
+            reply_to_id: params["reply_to_id"],
+            attachments: params["attachments"] || []
           }
 
           case Messaging.create_message(attrs) do

@@ -121,6 +121,23 @@ describe('messagingStore', () => {
     expect(msgs[0].pending).toBeFalsy()
   })
 
+  it('appendMessage replaces matching pending optimistic message from same author', () => {
+    const store = useMessagingStore.getState()
+    const temp = makeMessage({ id: 'temp-123', content: 'Hello world', authorId: 'user-1', pending: true })
+    store.appendMessage('ch-1', temp)
+
+    expect(useMessagingStore.getState().messages['ch-1']).toHaveLength(1)
+
+    // Server broadcasts confirmed message
+    const confirmed = makeMessage({ id: 'real-uuid', content: 'Hello world', authorId: 'user-1', pending: false })
+    store.appendMessage('ch-1', confirmed)
+
+    const msgs = useMessagingStore.getState().messages['ch-1']
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].id).toBe('real-uuid')
+    expect(msgs[0].pending).toBe(false)
+  })
+
   it('failMessage marks message as failed', () => {
     const store = useMessagingStore.getState()
     const temp = makeMessage({ id: 'temp-999', pending: true })

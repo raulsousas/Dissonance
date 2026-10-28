@@ -7,35 +7,37 @@
 @layer base {
   :root {
     /* Backgrounds */
-    --color-bg-primary:    #1e1f22;   /* deepest background */
+    --color-bg-primary:    #1e1f22;   /* deepest rail background */
     --color-bg-secondary:  #2b2d31;   /* sidebar panels */
-    --color-bg-tertiary:   #313338;   /* main chat area */
+    --color-bg-tertiary:   #313338;   /* main chat / friends area */
     --color-bg-surface:    #383a40;   /* cards, inputs, modals */
-    --color-bg-elevated:   #404249;   /* hover states, dropdowns */
+    --color-bg-elevated:   #35373c;   /* hover states, dropdowns */
+    --color-bg-card:       #1e1f22;   /* active now cards */
 
     /* Text */
-    --color-text-primary:  #dbdee1;
-    --color-text-secondary:#b5bac1;
-    --color-text-muted:    #80848e;
+    --color-text-primary:  #f2f3f5;
+    --color-text-secondary:#dbdee1;
+    --color-text-muted:    #949ba4;
     --color-text-link:     #00a8fc;
 
     /* Accent */
-    --color-accent:        #5865f2;   /* brand indigo */
+    --color-accent:        #5865f2;   /* Discord Blurple */
     --color-accent-hover:  #4752c4;
     --color-accent-text:   #ffffff;
 
     /* Status */
-    --color-online:        #23a559;
+    --color-online:        #23a55a;
     --color-idle:          #f0b232;
-    --color-dnd:           #f23f42;
+    --color-dnd:           #f23f43;
     --color-offline:       #80848e;
 
     /* Destructive */
-    --color-danger:        #f23f42;
+    --color-danger:        #f23f43;
     --color-danger-hover:  #da373c;
 
     /* Borders */
-    --color-border:        #1e1f22;
+    --color-border:        #1f2023;
+    --color-border-subtle: #232428;
 
     /* Scrollbar */
     --scrollbar-thumb:     #1a1b1e;
@@ -53,6 +55,18 @@
     --color-text-secondary:#4f5660;
     --color-text-muted:    #747f8d;
     --color-border:        #d4d7dc;
+  }
+
+  /* AMOLED (Midnight pitch black) theme overrides */
+  [data-theme="amoled"] {
+    --color-bg-primary:    #000000;
+    --color-bg-secondary:  #0a0a0c;
+    --color-bg-tertiary:   #111214;
+    --color-bg-surface:    #18191c;
+    --color-bg-elevated:   #1e1f22;
+    --color-bg-card:       #000000;
+    --color-border:        #232428;
+    --color-border-subtle: #1a1b1e;
   }
 }
 

@@ -33,4 +33,11 @@ defmodule Guilda.Accounts.User do
     |> unique_constraint(:email)
     |> unique_constraint(:google_sub)
   end
+
+  def update_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:display_name, :avatar_url, :status])
+    |> validate_length(:display_name, min: 1, max: 100)
+    |> validate_inclusion(:status, ~w(online away dnd invisible offline))
+  end
 end

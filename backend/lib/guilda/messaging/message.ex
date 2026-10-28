@@ -19,17 +19,36 @@ defmodule Guilda.Messaging.Message do
     timestamps(updated_at: false)
   end
 
-  @required ~w(content channel_id author_id)a
-  @optional ~w(reply_to_id edited_at deleted)a
+  @required ~w(channel_id author_id)a
+  @optional ~w(content reply_to_id edited_at deleted)a
 
   def changeset(message, attrs) do
     message
     |> cast(attrs, @required ++ @optional)
     |> validate_required(@required)
-    |> validate_length(:content, min: 1, max: 4000)
+    |> validate_content_or_attachments(attrs)
     |> assoc_constraint(:channel)
     |> assoc_constraint(:author)
     |> assoc_constraint(:reply_to)
+  end
+
+  defp validate_content_or_attachments(changeset, attrs) do
+    content = get_field(changeset, :content)
+    attachments = Map.get(attrs, :attachments) || Map.get(attrs, "attachments") || []
+
+    has_content = content && String.trim(content) != ""
+    has_attachments = is_list(attachments) && length(attachments) > 0
+
+    cond do
+      has_content ->
+        validate_length(changeset, :content, min: 1, max: 4000)
+
+      has_attachments ->
+        changeset
+
+      true ->
+        validate_required(changeset, [:content])
+    end
   end
 
   def edit_changeset(message, attrs) do
