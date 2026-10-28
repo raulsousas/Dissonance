@@ -1,0 +1,56 @@
+# =============================================================================
+# Guilda — .gitignore
+# =============================================================================
+
+# Environment secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# =============================================================================
+# Elixir / Phoenix (backend/)
+# =============================================================================
+backend/_build/
+backend/deps/
+backend/priv/static/
+backend/.elixir_ls/
+backend/.lexical/
+backend/cover/
+backend/*.ez
+backend/erl_crash.dump
+backend/npm-debug.log
+
+# =============================================================================
+# Node / Vite (frontend/)
+# =============================================================================
+frontend/node_modules/
+frontend/.tsbuild/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+frontend/.playwright/
+*.tsbuildinfo
+
+# =============================================================================
+# Docker / infrastructure
+# =============================================================================
+infra/minio/data/
+infra/postgres/data/
+
+# =============================================================================
+# OS / Editor
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+*~

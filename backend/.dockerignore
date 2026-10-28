@@ -1,0 +1,11 @@
+# backend/.dockerignore
+_build/
+deps/
+.git/
+.gitignore
+*.md
+test/
+cover/
+priv/static/
+.elixir_ls/
+.lexical/

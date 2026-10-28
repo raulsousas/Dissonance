@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Guilda Design Tokens
+   Discord-inspired dark-first palette
+   ============================================================ */
+@layer base {
+  :root {
+    /* Backgrounds */
+    --color-bg-primary:    #1e1f22;   /* deepest background */
+    --color-bg-secondary:  #2b2d31;   /* sidebar panels */
+    --color-bg-tertiary:   #313338;   /* main chat area */
+    --color-bg-surface:    #383a40;   /* cards, inputs, modals */
+    --color-bg-elevated:   #404249;   /* hover states, dropdowns */
+
+    /* Text */
+    --color-text-primary:  #dbdee1;
+    --color-text-secondary:#b5bac1;
+    --color-text-muted:    #80848e;
+    --color-text-link:     #00a8fc;
+
+    /* Accent */
+    --color-accent:        #5865f2;   /* brand indigo */
+    --color-accent-hover:  #4752c4;
+    --color-accent-text:   #ffffff;
+
+    /* Status */
+    --color-online:        #23a559;
+    --color-idle:          #f0b232;
+    --color-dnd:           #f23f42;
+    --color-offline:       #80848e;
+
+    /* Destructive */
+    --color-danger:        #f23f42;
+    --color-danger-hover:  #da373c;
+
+    /* Borders */
+    --color-border:        #1e1f22;
+
+    /* Scrollbar */
+    --scrollbar-thumb:     #1a1b1e;
+    --scrollbar-track:     transparent;
+  }
+
+  /* Light theme overrides */
+  [data-theme="light"] {
+    --color-bg-primary:    #f2f3f5;
+    --color-bg-secondary:  #e3e5e8;
+    --color-bg-tertiary:   #ffffff;
+    --color-bg-surface:    #ebedef;
+    --color-bg-elevated:   #ffffff;
+    --color-text-primary:  #2e3338;
+    --color-text-secondary:#4f5660;
+    --color-text-muted:    #747f8d;
+    --color-border:        #d4d7dc;
+  }
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+}
