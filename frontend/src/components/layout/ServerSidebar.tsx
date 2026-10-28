@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Avatar from '@radix-ui/react-avatar'
 import { Plus, Compass } from 'lucide-react'
+import logoVetorizada from '@/images/logo_vetorizada.png'
 import { useServers, useCreateServer, useJoinServer, type Server } from '@/hooks/useServers'
+import { useMessagingStore } from '@/stores/messagingStore'
+import { usePendingRequests } from '@/hooks/useFriends'
 
 interface Props {
   selectedServerId: string | null
@@ -12,16 +15,27 @@ interface Props {
 export default function ServerSidebar({ selectedServerId }: Props) {
   const { data: servers = [] } = useServers()
   const navigate = useNavigate()
+  const unread = useMessagingStore((s) => s.unread)
+  const channelToServer = useMessagingStore((s) => s.channelToServer)
+  const { data: pendingRequests } = usePendingRequests()
+  const pendingFriendsCount = pendingRequests?.incoming?.length || 0
+
+  const totalDmUnread = Object.entries(unread).reduce((acc, [id, count]) => {
+    return !channelToServer[id] ? acc + count : acc
+  }, 0)
+
+  const totalHomeBadge = totalDmUnread + pendingFriendsCount
 
   return (
     <nav
-      className="flex flex-col items-center gap-2 py-3 w-full min-h-full"
+      className="flex flex-col items-center gap-2 py-3 w-full min-h-full select-none"
       style={{ background: 'var(--color-bg-primary)' }}
       aria-label="Servers"
     >
       {/* Discord / DM Home button */}
       <HomePillButton
         active={!selectedServerId}
+        badgeCount={totalHomeBadge}
         onClick={() => navigate('/app/dm')}
       />
 
@@ -29,14 +43,21 @@ export default function ServerSidebar({ selectedServerId }: Props) {
 
       {/* Server list */}
       <div className="flex flex-col items-center gap-2 w-full">
-        {servers.map((s) => (
-          <ServerIcon
-            key={s.id}
-            server={s}
-            active={s.id === selectedServerId}
-            onClick={() => navigate(`/app/servers/${s.id}`)}
-          />
-        ))}
+        {servers.map((s) => {
+          const serverUnread = Object.entries(unread).reduce((acc, [chId, count]) => {
+            return channelToServer[chId] === s.id ? acc + count : acc
+          }, 0)
+
+          return (
+            <ServerIcon
+              key={s.id}
+              server={s}
+              unreadCount={serverUnread}
+              active={s.id === selectedServerId}
+              onClick={() => navigate(`/app/servers/${s.id}`)}
+            />
+          )
+        })}
       </div>
 
       <div className="w-8 h-[2px] mx-auto rounded my-0.5" style={{ background: 'rgba(255,255,255,0.08)' }} />
@@ -54,7 +75,15 @@ export default function ServerSidebar({ selectedServerId }: Props) {
   )
 }
 
-function HomePillButton({ active, onClick }: { active: boolean; onClick: () => void }) {
+function HomePillButton({
+  active,
+  badgeCount,
+  onClick,
+}: {
+  active: boolean
+  badgeCount: number
+  onClick: () => void
+}) {
   return (
     <div className="relative group flex items-center justify-center w-full">
       {/* Sliding white indicator pill */}
@@ -62,6 +91,8 @@ function HomePillButton({ active, onClick }: { active: boolean; onClick: () => v
         className={`absolute left-0 w-1 bg-white rounded-r transition-all duration-200 ${
           active
             ? 'h-10 opacity-100'
+            : badgeCount > 0
+            ? 'h-2 opacity-100 group-hover:h-5'
             : 'h-2 opacity-0 group-hover:opacity-100 group-hover:h-5'
         }`}
       />
@@ -69,22 +100,40 @@ function HomePillButton({ active, onClick }: { active: boolean; onClick: () => v
         onClick={onClick}
         title="Direct Messages"
         aria-label="Direct Messages"
-        className={`relative w-12 h-12 flex items-center justify-center transition-all duration-200 cursor-pointer ${
+        className={`relative w-12 h-12 flex items-center justify-center transition-all duration-200 cursor-pointer overflow-hidden ${
           active
             ? 'rounded-2xl bg-[#5865f2] text-white shadow-md'
             : 'rounded-[24px] bg-[#313338] text-[#dbdee1] hover:rounded-2xl hover:bg-[#5865f2] hover:text-white'
         }`}
       >
-        {/* Discord Controller Icon */}
-        <svg width="26" height="20" viewBox="0 0 127.14 96.36" fill="currentColor">
-          <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,45.91,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,45.91,96.12,53,91.08,65.69,84.69,65.69Z" />
-        </svg>
+        <img
+          src={logoVetorizada}
+          alt="Dissonance"
+          className="w-7 h-7 object-contain"
+        />
+
+        {/* Unread notification badge bubble */}
+        {badgeCount > 0 && (
+          <span className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#f23f43] text-white text-[11px] font-bold flex items-center justify-center border-2 border-[#1e1f22] shadow animate-in fade-in zoom-in duration-150">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
       </button>
     </div>
   )
 }
 
-function ServerIcon({ server, active, onClick }: { server: Server; active: boolean; onClick: () => void }) {
+function ServerIcon({
+  server,
+  unreadCount,
+  active,
+  onClick,
+}: {
+  server: Server
+  unreadCount: number
+  active: boolean
+  onClick: () => void
+}) {
   return (
     <div className="relative group flex items-center justify-center w-full">
       {/* Sliding white indicator pill */}
@@ -92,6 +141,8 @@ function ServerIcon({ server, active, onClick }: { server: Server; active: boole
         className={`absolute left-0 w-1 bg-white rounded-r transition-all duration-200 ${
           active
             ? 'h-10 opacity-100'
+            : unreadCount > 0
+            ? 'h-2 opacity-100 group-hover:h-5'
             : 'h-2 opacity-0 group-hover:opacity-100 group-hover:h-5'
         }`}
       />
@@ -100,18 +151,25 @@ function ServerIcon({ server, active, onClick }: { server: Server; active: boole
         title={server.name}
         aria-label={server.name}
         aria-current={active ? 'page' : undefined}
-        className={`relative w-12 h-12 flex items-center justify-center transition-all duration-200 cursor-pointer overflow-hidden ${
+        className={`relative w-12 h-12 flex items-center justify-center transition-all duration-200 cursor-pointer overflow-visible ${
           active
             ? 'rounded-2xl bg-[#5865f2] text-white shadow-md'
             : 'rounded-[24px] bg-[#313338] text-[#dbdee1] hover:rounded-2xl hover:bg-[#5865f2] hover:text-white'
         }`}
       >
-        <Avatar.Root className="w-full h-full flex items-center justify-center">
+        <Avatar.Root className="w-full h-full rounded-[inherit] overflow-hidden flex items-center justify-center">
           <Avatar.Image src={server.iconUrl ?? undefined} alt={server.name} className="w-full h-full object-cover" />
           <Avatar.Fallback className="text-sm font-semibold tracking-wide">
             {server.name.split(' ').map(w => w[0]).slice(0, 3).join('').toUpperCase()}
           </Avatar.Fallback>
         </Avatar.Root>
+
+        {/* Unread notification badge bubble */}
+        {unreadCount > 0 && !active && (
+          <span className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#f23f43] text-white text-[11px] font-bold flex items-center justify-center border-2 border-[#1e1f22] shadow animate-in fade-in zoom-in duration-150">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
       </button>
     </div>
   )

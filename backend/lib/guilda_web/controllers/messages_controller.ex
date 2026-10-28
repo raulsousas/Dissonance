@@ -8,6 +8,7 @@ defmodule GuildaWeb.MessagesController do
   """
 
   use GuildaWeb, :controller
+  import Ecto.Query
 
   alias Guilda.{Channels, Servers, Messaging}
 
@@ -65,6 +66,7 @@ defmodule GuildaWeb.MessagesController do
       replyToId: msg.reply_to_id,
       editedAt: msg.edited_at,
       deleted: msg.deleted,
+      pinned: msg.pinned || false,
       reactions: reactions,
       attachments: attachments,
       insertedAt: msg.inserted_at
@@ -125,12 +127,33 @@ defmodule GuildaWeb.MessagesController do
 
           case Messaging.create_message(attrs) do
             {:ok, message} ->
+              serialized = serialize_message(message)
               # Broadcast via Phoenix PubSub so WebSocket subscribers receive it
-              GuildaWeb.Endpoint.broadcast("channel:#{channel_id}", "new_message",
-                serialize_message(message)
-              )
+              GuildaWeb.Endpoint.broadcast("channel:#{channel_id}", "new_message", serialized)
 
-              conn |> put_status(201) |> json(%{message: serialize_message(message)})
+              # Notify other members of this server
+              server = channel.server
+              server_id = server.id
+              author_id = user.id
+
+              member_user_ids =
+                Guilda.Repo.all(
+                  from sm in Guilda.Servers.ServerMember,
+                    where: sm.server_id == ^server_id and sm.user_id != ^author_id,
+                    select: sm.user_id
+                )
+
+              Enum.each(member_user_ids, fn member_id ->
+                GuildaWeb.Endpoint.broadcast("user:#{member_id}", "new_server_message", %{
+                  serverId: server_id,
+                  channelId: channel_id,
+                  channelName: channel.name,
+                  serverName: server.name,
+                  message: serialized
+                })
+              end)
+
+              conn |> put_status(201) |> json(%{message: serialized})
 
             {:error, changeset} ->
               errors =

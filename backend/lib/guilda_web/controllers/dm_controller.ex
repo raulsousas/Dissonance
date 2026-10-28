@@ -88,13 +88,16 @@ defmodule GuildaWeb.DmController do
   end
 
   # POST /api/dm/:id/messages
-  def create_message(conn, %{"id" => id, "content" => content}) do
+  def create_message(conn, %{"id" => id} = params) do
     user = conn.assigns.current_user
 
     if not DirectMessaging.member?(id, user.id) do
       conn |> put_status(:forbidden) |> json(%{error: "Not a member of this conversation"})
     else
-      case DirectMessaging.create_message(id, user, %{content: content}) do
+      content = Map.get(params, "content", "")
+      attachments = Map.get(params, "attachments", [])
+
+      case DirectMessaging.create_message(id, user, %{content: content, attachments: attachments}) do
         {:ok, msg} ->
           conn |> put_status(:created) |> json(%{data: serialize_message(msg)})
 
@@ -102,10 +105,6 @@ defmodule GuildaWeb.DmController do
           conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(cs)})
       end
     end
-  end
-
-  def create_message(conn, _params) do
-    conn |> put_status(:bad_request) |> json(%{error: "content is required"})
   end
 
   # ---------------------------------------------------------------------------
@@ -136,8 +135,10 @@ defmodule GuildaWeb.DmController do
       authorId: m.author_id,
       authorName: m.author && m.author.display_name,
       authorAvatar: m.author && m.author.avatar_url,
+      attachments: m.attachments || [],
       editedAt: m.edited_at,
       deleted: m.deleted,
+      pinned: m.pinned || false,
       insertedAt: m.inserted_at
     }
   end

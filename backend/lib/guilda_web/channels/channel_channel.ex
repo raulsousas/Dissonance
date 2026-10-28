@@ -23,6 +23,7 @@ defmodule GuildaWeb.ChannelChannel do
 
   use Phoenix.Channel
   require Logger
+  import Ecto.Query
 
   alias Guilda.{Channels, Servers, Messaging}
   alias Guilda.Servers.Permissions
@@ -97,7 +98,32 @@ defmodule GuildaWeb.ChannelChannel do
       case Messaging.create_message(attrs) do
         {:ok, message} ->
           Logger.info("[ChannelChannel] Message created msg_id=#{message.id} channel_id=#{channel_id} attachments=#{length(message.attachments || [])}")
-          broadcast!(socket, "new_message", serialize_message(message))
+          serialized = serialize_message(message)
+          broadcast!(socket, "new_message", serialized)
+
+          # Notify other members of this server via their personal user channel
+          server = socket.assigns.server
+          channel = socket.assigns.channel
+          server_id = server.id
+          author_id = user.id
+
+          member_user_ids =
+            Guilda.Repo.all(
+              from sm in Guilda.Servers.ServerMember,
+                where: sm.server_id == ^server_id and sm.user_id != ^author_id,
+                select: sm.user_id
+            )
+
+          Enum.each(member_user_ids, fn member_id ->
+            GuildaWeb.Endpoint.broadcast("user:#{member_id}", "new_server_message", %{
+              serverId: server_id,
+              channelId: channel_id,
+              channelName: channel.name,
+              serverName: server.name,
+              message: serialized
+            })
+          end)
+
           {:reply, {:ok, %{id: message.id}}, socket}
 
         {:error, changeset} ->
@@ -200,6 +226,34 @@ defmodule GuildaWeb.ChannelChannel do
 
       {:error, _} ->
         {:reply, {:error, %{reason: "not_found"}}, socket}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # pin_message / unpin_message
+  # ---------------------------------------------------------------------------
+
+  def handle_in("pin_message", %{"message_id" => msg_id}, socket) do
+    case Messaging.get_message(msg_id) do
+      nil ->
+        {:reply, {:error, %{reason: "not_found"}}, socket}
+
+      msg ->
+        {:ok, updated} = Messaging.pin_message(msg)
+        broadcast!(socket, "message_pinned", %{id: updated.id, pinned: true})
+        {:reply, :ok, socket}
+    end
+  end
+
+  def handle_in("unpin_message", %{"message_id" => msg_id}, socket) do
+    case Messaging.get_message(msg_id) do
+      nil ->
+        {:reply, {:error, %{reason: "not_found"}}, socket}
+
+      msg ->
+        {:ok, updated} = Messaging.unpin_message(msg)
+        broadcast!(socket, "message_unpinned", %{id: updated.id, pinned: false})
+        {:reply, :ok, socket}
     end
   end
 
@@ -309,6 +363,7 @@ defmodule GuildaWeb.ChannelChannel do
       replyToId: msg.reply_to_id,
       editedAt: msg.edited_at,
       deleted: msg.deleted,
+      pinned: msg.pinned || false,
       reactions: serialize_reactions(msg.reactions),
       attachments: attachments,
       insertedAt: msg.inserted_at

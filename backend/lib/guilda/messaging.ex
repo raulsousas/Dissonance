@@ -8,7 +8,8 @@ defmodule Guilda.Messaging do
   import Ecto.Query
 
   alias Guilda.Repo
-  alias Guilda.Messaging.{Message, Reaction}
+  alias Guilda.Accounts.User
+  alias Guilda.Messaging.{Message, Reaction, Attachment}
 
   # ---------------------------------------------------------------------------
   # Messages
@@ -133,6 +134,34 @@ defmodule Guilda.Messaging do
     msg
     |> Ecto.Changeset.change(%{deleted: true, content: "[deleted]"})
     |> Repo.update()
+  end
+
+  @doc "Pin a message."
+  def pin_message(%Message{} = msg) do
+    msg
+    |> Message.pin_changeset(true)
+    |> Repo.update()
+  end
+
+  @doc "Unpin a message."
+  def unpin_message(%Message{} = msg) do
+    msg
+    |> Message.pin_changeset(false)
+    |> Repo.update()
+  end
+
+  @doc "List pinned messages for a channel."
+  def list_pinned_messages(channel_id) do
+    from(m in Message,
+      where: m.channel_id == ^channel_id and m.pinned == true and m.deleted == false,
+      preload: [
+        author: ^from(u in User, select: [:id, :display_name, :avatar_url]),
+        reactions: [:user],
+        attachments: ^from(a in Attachment, order_by: [asc: a.inserted_at])
+      ],
+      order_by: [desc: m.inserted_at]
+    )
+    |> Repo.all()
   end
 
   # ---------------------------------------------------------------------------

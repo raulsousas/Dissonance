@@ -4,6 +4,7 @@ defmodule GuildaWeb.PresenceChannel do
   """
 
   use Phoenix.Channel
+  alias Guilda.Accounts
   alias GuildaWeb.Presence
 
   @impl true
@@ -22,13 +23,21 @@ defmodule GuildaWeb.PresenceChannel do
   def handle_info(:after_join, socket) do
     user = socket.assigns.current_user
 
-    if user.status != "invisible" do
+    effective_status =
+      case user.status do
+        "invisible" -> "invisible"
+        "dnd" -> "dnd"
+        "away" -> "away"
+        _ -> "online"
+      end
+
+    if effective_status != "invisible" do
       {:ok, _} =
         Presence.track(socket, user.id, %{
           user_id: user.id,
           display_name: user.display_name,
           avatar_url: user.avatar_url,
-          status: user.status || "online",
+          status: effective_status,
           voice_channel_id: nil,
           online_at: System.system_time(:second)
         })
@@ -42,8 +51,11 @@ defmodule GuildaWeb.PresenceChannel do
   def handle_in("update_status", %{"status" => status}, socket) do
     user = socket.assigns.current_user
 
+    # Persist the new status to the user's account in DB
+    Accounts.update_user(user, %{status: status})
+
     cond do
-      status == "invisible" ->
+      status == "invisible" or status == "offline" ->
         Presence.untrack(socket, user.id)
 
       Presence.get_by_key(socket, user.id) == nil ->

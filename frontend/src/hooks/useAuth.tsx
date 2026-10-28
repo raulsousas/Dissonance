@@ -1,5 +1,6 @@
 import { createContext, useContext, ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { updateGlobalStatus } from '@/stores/presenceStore'
 
 export interface CurrentUser {
   id: string
@@ -16,6 +17,8 @@ interface AuthContextValue {
   isLoading: boolean
   isAuthenticated: boolean
   logout: () => Promise<void>
+  updateStatus: (status: CurrentUser['status']) => Promise<void>
+  updateUser: (fields: Partial<CurrentUser>) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -50,6 +53,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = '/login'
   }
 
+  async function updateStatus(status: CurrentUser['status']) {
+    // 1. Optimistically update local query cache
+    queryClient.setQueryData<CurrentUser | null>(['currentUser'], (prev) =>
+      prev ? { ...prev, status } : prev
+    )
+
+    // 2. Broadcast via socket presence
+    if (currentUser?.id) {
+      updateGlobalStatus(status, currentUser.id)
+    }
+
+    // 3. Persist to backend database
+    try {
+      await fetch('/api/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+        credentials: 'include',
+      })
+    } catch (err) {
+      console.error('Failed to persist status to backend:', err)
+    }
+  }
+
+  async function updateUser(fields: Partial<CurrentUser>) {
+    queryClient.setQueryData<CurrentUser | null>(['currentUser'], (prev) =>
+      prev ? { ...prev, ...fields } : prev
+    )
+
+    if (fields.status && currentUser?.id) {
+      updateGlobalStatus(fields.status, currentUser.id)
+    }
+
+    try {
+      await fetch('/api/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: fields.displayName,
+          avatarUrl: fields.avatarUrl,
+          status: fields.status,
+        }),
+        credentials: 'include',
+      })
+    } catch (err) {
+      console.error('Failed to update user profile:', err)
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -57,6 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!currentUser,
         logout,
+        updateStatus,
+        updateUser,
       }}
     >
       {children}

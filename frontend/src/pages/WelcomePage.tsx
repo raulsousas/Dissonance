@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useChannels } from '@/hooks/useServers'
+import logoVetorizada from '@/images/logo_vetorizada.png'
 
 /**
  * Welcome / empty state shown when no channel is selected.
@@ -23,12 +24,16 @@ export default function WelcomePage() {
   return (
     <div className="flex-1 flex items-center justify-center h-full">
       <div className="text-center space-y-3">
-        <div className="text-5xl">⚔️</div>
+        <img
+          src={logoVetorizada}
+          alt="Dissonance Logo"
+          className="w-20 h-20 mx-auto object-contain drop-shadow-md"
+        />
         <h2
           className="text-xl font-bold"
           style={{ color: 'var(--color-text-primary)' }}
         >
-          Welcome to Guilda
+          Welcome to Dissonance
         </h2>
         <p className="text-sm max-w-xs" style={{ color: 'var(--color-text-muted)' }}>
           Select a server and channel from the sidebar to start chatting.

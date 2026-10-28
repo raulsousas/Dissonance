@@ -9,6 +9,7 @@ defmodule Guilda.Messaging.Message do
     field :content, :string
     field :edited_at, :utc_datetime
     field :deleted, :boolean, default: false
+    field :pinned, :boolean, default: false
 
     belongs_to :channel, Guilda.Channels.Channel
     belongs_to :author, Guilda.Accounts.User
@@ -20,7 +21,7 @@ defmodule Guilda.Messaging.Message do
   end
 
   @required ~w(channel_id author_id)a
-  @optional ~w(content reply_to_id edited_at deleted)a
+  @optional ~w(content reply_to_id edited_at deleted pinned)a
 
   def changeset(message, attrs) do
     message
@@ -57,5 +58,9 @@ defmodule Guilda.Messaging.Message do
     |> validate_required([:content])
     |> validate_length(:content, min: 1, max: 4000)
     |> put_change(:edited_at, DateTime.utc_now() |> DateTime.truncate(:second))
+  end
+
+  def pin_changeset(message, pinned \\ true) do
+    change(message, pinned: pinned)
   end
 end

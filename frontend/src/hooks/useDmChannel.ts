@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import type { Channel } from 'phoenix'
 import { getSocket } from '@/lib/socket'
-import { useMessagingStore, type Message, type TypingUser } from '@/stores/messagingStore'
+import { useMessagingStore, type Message, type TypingUser, type Attachment } from '@/stores/messagingStore'
 import { useAuth, type CurrentUser } from '@/hooks/useAuth'
 
 const HISTORY_LIMIT = 50
@@ -10,6 +10,9 @@ const EMPTY_TYPING: TypingUser[] = []
 
 interface SendMessageOpts {
   content: string
+  replyToId?: string
+  attachments?: Attachment[]
+  files?: File[]
 }
 
 export function useDmChannel(conversationId: string | undefined) {
@@ -63,7 +66,9 @@ export function useDmChannel(conversationId: string | undefined) {
           replyToId: null,
           editedAt: m.editedAt ?? null,
           deleted: m.deleted ?? false,
+          pinned: m.pinned ?? false,
           reactions: [],
+          attachments: m.attachments ?? [],
           insertedAt: m.insertedAt,
         }))
 
@@ -106,6 +111,7 @@ export function useDmChannel(conversationId: string | undefined) {
       .receive('ok', () => {
         console.info(`[Guilda:DM] Joined dm:${conversationId} successfully`)
         loadHistory(conversationId)
+        useMessagingStore.getState().clearUnread(conversationId)
       })
       .receive('error', (err: unknown) => {
         console.error(`[Guilda:DM] Failed to join dm:${conversationId}:`, err)
@@ -124,10 +130,13 @@ export function useDmChannel(conversationId: string | undefined) {
         replyToId: null,
         editedAt: payload.editedAt ?? null,
         deleted: payload.deleted ?? false,
+        pinned: payload.pinned ?? false,
         reactions: [],
+        attachments: payload.attachments ?? [],
         insertedAt: payload.insertedAt,
       }
       useMessagingStore.getState().appendMessage(conversationId, msg)
+      useMessagingStore.getState().clearUnread(conversationId)
     })
 
     channel.on('message_edited', (payload: { id: string; content: string; editedAt: string }) => {
@@ -141,6 +150,18 @@ export function useDmChannel(conversationId: string | undefined) {
       useMessagingStore.getState().updateMessage(conversationId, payload.id, {
         deleted: true,
         content: '[deleted]',
+      })
+    })
+
+    channel.on('message_pinned', (payload: { id: string; pinned: boolean }) => {
+      useMessagingStore.getState().updateMessage(conversationId, payload.id, {
+        pinned: payload.pinned ?? true,
+      })
+    })
+
+    channel.on('message_unpinned', (payload: { id: string; pinned: boolean }) => {
+      useMessagingStore.getState().updateMessage(conversationId, payload.id, {
+        pinned: payload.pinned ?? false,
       })
     })
 
@@ -162,12 +183,121 @@ export function useDmChannel(conversationId: string | undefined) {
   // Actions
   // ---------------------------------------------------------------------------
   const sendMessage = useCallback(
-    ({ content }: SendMessageOpts) => {
+    async ({ content, replyToId, attachments, files }: SendMessageOpts) => {
       const channel = channelRef.current
       if (!channel || !conversationId || !user) return
 
       const store = useMessagingStore.getState()
       const tempId = `temp-${Date.now()}`
+
+      if (files && files.length > 0) {
+        // Optimistic attachments with initial upload progress (10%)
+        const initialAttachments: Attachment[] = files.map((file, i) => ({
+          id: `temp-att-${Date.now()}-${i}`,
+          url: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+          filename: file.name,
+          size: file.size,
+          contentType: file.type,
+          progress: 10,
+        }))
+
+        const optimistic: Message = {
+          id: tempId,
+          content,
+          channelId: conversationId,
+          authorId: user.id,
+          authorName: (user as CurrentUser).displayName,
+          authorAvatar: (user as CurrentUser).avatarUrl ?? null,
+          replyToId: replyToId ?? null,
+          editedAt: null,
+          deleted: false,
+          reactions: [],
+          attachments: initialAttachments,
+          insertedAt: new Date().toISOString(),
+          pending: true,
+        }
+        store.appendMessage(conversationId, optimistic)
+
+        try {
+          const uploadPromises = files.map((file, i) => {
+            return new Promise<Attachment>((resolve, reject) => {
+              const formData = new FormData()
+              formData.append('file', file)
+
+              const xhr = new XMLHttpRequest()
+              xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                  const percent = Math.min(Math.round((e.loaded / e.total) * 100), 98)
+                  const currentMsg = useMessagingStore.getState().messages[conversationId]?.find((m) => m.id === tempId)
+                  if (currentMsg?.attachments) {
+                    const updatedAtts = [...currentMsg.attachments]
+                    if (updatedAtts[i]) {
+                      updatedAtts[i] = { ...updatedAtts[i], progress: percent }
+                      useMessagingStore.getState().updateMessage(conversationId, tempId, { attachments: updatedAtts })
+                    }
+                  }
+                }
+              }
+
+              xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  try {
+                    const data = JSON.parse(xhr.responseText)
+                    if (data.attachment) {
+                      return resolve(data.attachment)
+                    }
+                  } catch (_) {}
+                }
+                reject(new Error('Upload failed'))
+              }
+
+              xhr.onerror = () => reject(new Error('Network error'))
+              xhr.open('POST', '/api/upload', true)
+              xhr.withCredentials = true
+              xhr.send(formData)
+            })
+          })
+
+          const uploadedAttachments = await Promise.all(uploadPromises)
+
+          const serializedAttachments = uploadedAttachments.map((att) => ({
+            id: att.id,
+            url: att.url,
+            filename: att.filename,
+            size: att.size,
+            contentType: att.contentType,
+            content_type: att.contentType,
+            width: att.width ?? null,
+            height: att.height ?? null,
+            progress: 100,
+          }))
+
+          store.updateMessage(conversationId, tempId, { attachments: serializedAttachments })
+
+          channel
+            .push('new_message', { content, attachments: serializedAttachments })
+            .receive('ok', (resp: { id: string }) => {
+              console.info(`[Guilda:DM] new_message ACK received from dm:${conversationId}: id=${resp.id}`)
+              const currentList = useMessagingStore.getState().messages[conversationId] ?? []
+              const hasConfirmed = currentList.some((m) => m.id === resp.id && !m.pending)
+              if (hasConfirmed) {
+                store.removeMessage(conversationId, tempId)
+              } else {
+                store.updateMessage(conversationId, tempId, { id: resp.id, pending: false })
+              }
+            })
+            .receive('error', (err: unknown) => {
+              console.error(`[Guilda:DM] new_message rejected by dm:${conversationId}:`, err)
+              store.failMessage(conversationId, tempId)
+            })
+        } catch (err) {
+          console.error(`[Guilda:DM] Upload failed:`, err)
+          store.failMessage(conversationId, tempId)
+        }
+        return
+      }
+
+      // Optimistic insert for text-only or pre-attached messages
       const optimistic: Message = {
         id: tempId,
         content,
@@ -175,23 +305,35 @@ export function useDmChannel(conversationId: string | undefined) {
         authorId: user.id,
         authorName: (user as CurrentUser).displayName,
         authorAvatar: (user as CurrentUser).avatarUrl ?? null,
-        replyToId: null,
+        replyToId: replyToId ?? null,
         editedAt: null,
         deleted: false,
         reactions: [],
+        attachments: attachments ?? [],
         insertedAt: new Date().toISOString(),
         pending: true,
       }
 
       store.appendMessage(conversationId, optimistic)
 
+      const payload: Record<string, any> = { content }
+      if (attachments && attachments.length > 0) {
+        payload.attachments = attachments
+      }
+
       channel
-        .push('new_message', { content })
+        .push('new_message', payload)
         .receive('ok', (resp: { id: string }) => {
-          store.updateMessage(conversationId, tempId, {
-            id: resp.id,
-            pending: false,
-          })
+          const currentList = useMessagingStore.getState().messages[conversationId] ?? []
+          const hasConfirmed = currentList.some((m) => m.id === resp.id && !m.pending)
+          if (hasConfirmed) {
+            store.removeMessage(conversationId, tempId)
+          } else {
+            store.updateMessage(conversationId, tempId, {
+              id: resp.id,
+              pending: false,
+            })
+          }
         })
         .receive('error', () => {
           store.failMessage(conversationId, tempId)
@@ -216,6 +358,20 @@ export function useDmChannel(conversationId: string | undefined) {
       if (!channel) return
 
       channel.push('delete_message', { message_id: messageId })
+    },
+    []
+  )
+
+  const pinMessage = useCallback(
+    (messageId: string) => {
+      channelRef.current?.push('pin_message', { message_id: messageId })
+    },
+    []
+  )
+
+  const unpinMessage = useCallback(
+    (messageId: string) => {
+      channelRef.current?.push('unpin_message', { message_id: messageId })
     },
     []
   )
@@ -252,6 +408,8 @@ export function useDmChannel(conversationId: string | undefined) {
     sendMessage,
     editMessage,
     deleteMessage,
+    pinMessage,
+    unpinMessage,
     sendTyping,
     sendStopTyping,
   }

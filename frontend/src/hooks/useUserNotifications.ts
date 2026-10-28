@@ -2,19 +2,24 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { getSocket } from '@/lib/socket'
 import { useAuth } from '@/hooks/useAuth'
+import { useMessagingStore } from '@/stores/messagingStore'
 import { playMessageNotificationSound } from '@/lib/soundEffects'
 
 export function useUserNotifications() {
   const { currentUser } = useAuth()
   const queryClient = useQueryClient()
 
-  useEffect(() => {
-    if (!currentUser) return
+  const userId = currentUser?.id
+  const token = currentUser?.token
+  const userStatus = currentUser?.status
 
-    const socket = getSocket(currentUser.token)
+  useEffect(() => {
+    if (!userId) return
+
+    const socket = getSocket(token)
     socket.connect()
 
-    const channel = socket.channel(`user:${currentUser.id}`, {})
+    const channel = socket.channel(`user:${userId}`, {})
 
     channel
       .join()
@@ -33,7 +38,7 @@ export function useUserNotifications() {
       queryClient.invalidateQueries({ queryKey: ['friends'] })
       playMessageNotificationSound()
       if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {
-        new Notification('Guilda — Novo pedido de amizade', {
+        new Notification('Dissonance — Novo pedido de amizade', {
           body: payload?.from ? `${payload.from} enviou um pedido de amizade.` : 'Você recebeu um novo pedido de amizade.',
         })
       }
@@ -63,12 +68,47 @@ export function useUserNotifications() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
     })
 
-    channel.on('new_dm', (payload: { senderName?: string; content?: string }) => {
+    channel.on('new_dm', (payload: any) => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      playMessageNotificationSound()
+      const convId = payload?.conversationId
+      const isCurrent = typeof window !== 'undefined' && window.location.pathname === `/app/dm/${convId}`
+      if (!isCurrent && convId) {
+        useMessagingStore.getState().incrementUnread(convId)
+      }
+
+      const isDnd = userStatus === 'dnd'
+      if (!isDnd) {
+        playMessageNotificationSound()
+      }
+
+      const authorName = payload?.message?.authorName || payload?.senderName || 'Amigo'
+      const content = payload?.message?.content || payload?.content || 'Você recebeu uma nova mensagem direta.'
+
       if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {
-        new Notification(`Guilda — Mensagem de ${payload?.senderName || 'Amigo'}`, {
-          body: payload?.content || 'Você recebeu uma nova mensagem direta.',
+        new Notification(`Dissonance — ${authorName}`, {
+          body: content,
+        })
+      }
+    })
+
+    channel.on('new_server_message', (payload: any) => {
+      const { serverId, channelId, channelName, serverName, message } = payload
+      const isCurrent = typeof window !== 'undefined' && window.location.pathname.includes(`/channels/${channelId}`)
+      if (!isCurrent && channelId && serverId) {
+        useMessagingStore.getState().incrementUnread(channelId, serverId)
+      }
+
+      const isDnd = userStatus === 'dnd'
+      if (!isDnd) {
+        playMessageNotificationSound()
+      }
+
+      const author = message?.authorName || 'Alguém'
+      const content = message?.content || 'Nova mensagem no servidor'
+
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {
+        new Notification(`Dissonance — #${channelName || 'canal'} (${serverName || 'Servidor'})`, {
+          body: `${author}: ${content}`,
         })
       }
     })
@@ -76,5 +116,5 @@ export function useUserNotifications() {
     return () => {
       channel.leave()
     }
-  }, [currentUser, queryClient])
+  }, [userId, token, userStatus, queryClient])
 }

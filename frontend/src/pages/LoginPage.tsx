@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import logoVetorizada from '@/images/logo_vetorizada.png'
 
 /**
  * Login page — shown to unauthenticated users.
@@ -30,14 +31,19 @@ export default function LoginPage() {
       >
         {/* Logo / brand */}
         <div className="mb-8 text-center">
+          <img
+            src={logoVetorizada}
+            alt="Dissonance Logo"
+            className="w-16 h-16 mx-auto mb-3 object-contain drop-shadow-lg"
+          />
           <h1
             className="text-3xl font-extrabold tracking-tight"
             style={{ color: 'var(--color-text-primary)' }}
           >
-            Guilda
+            Dissonance
           </h1>
           <p className="mt-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Private communication for your guild
+            Private communication for your community
           </p>
         </div>
 
@@ -53,7 +59,7 @@ export default function LoginPage() {
             role="alert"
           >
             {errorParam === 'unauthorized'
-              ? 'Your account is not authorised to access Guilda. Contact an admin for an invite.'
+              ? 'Your account is not authorised to access Dissonance. Contact an admin for an invite.'
               : 'Something went wrong during sign in. Please try again.'}
           </div>
         )}

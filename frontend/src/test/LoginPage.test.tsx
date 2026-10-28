@@ -30,9 +30,9 @@ describe('LoginPage', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders the Guilda heading', () => {
+  it('renders the Dissonance heading', () => {
     render(<LoginPage />, { wrapper: Wrapper })
-    expect(screen.getByText('Guilda')).toBeInTheDocument()
+    expect(screen.getByText('Dissonance')).toBeInTheDocument()
   })
 
   it('renders the Google SSO link pointing to the backend', () => {

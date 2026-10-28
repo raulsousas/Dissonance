@@ -9,7 +9,7 @@ import { Crown, MessageSquare, UserPlus, Check } from 'lucide-react'
 import * as Popover from '@radix-ui/react-popover'
 import * as Avatar from '@radix-ui/react-avatar'
 import { useServerDetail } from '@/hooks/useServers'
-import { usePresence } from '@/hooks/usePresence'
+import { usePresence, getStatusLabel, getStatusColor } from '@/hooks/usePresence'
 import { useAuth } from '@/hooks/useAuth'
 import { useCreateConversation } from '@/hooks/useConversations'
 import { useSendFriendRequest, useFriends } from '@/hooks/useFriends'
@@ -18,18 +18,11 @@ interface Props {
   serverId?: string
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  online: '#23a55a',
-  away: '#f0b232',
-  dnd: '#f23f43',
-  offline: '#80848e',
-}
-
 export default function MemberPanel({ serverId: propServerId }: Props) {
   const { serverId: routeServerId } = useParams<{ serverId: string }>()
   const serverId = propServerId || routeServerId
   const { data: server, isLoading } = useServerDetail(serverId ?? null)
-  const { onlineUsers, isUserOnline } = usePresence()
+  const { isUserOnline, getUserStatus } = usePresence()
 
   if (!serverId || !server) {
     if (isLoading) {
@@ -63,8 +56,17 @@ export default function MemberPanel({ serverId: propServerId }: Props) {
   const ownerAndAdmins = onlineMembers.filter(
     (m) => m.userId.toLowerCase() === ownerId || m.role?.name?.toLowerCase().includes('admin')
   )
+  const moderators = onlineMembers.filter(
+    (m) =>
+      m.userId.toLowerCase() !== ownerId &&
+      !m.role?.name?.toLowerCase().includes('admin') &&
+      m.role?.name?.toLowerCase().includes('mod')
+  )
   const regularOnline = onlineMembers.filter(
-    (m) => m.userId.toLowerCase() !== ownerId && !m.role?.name?.toLowerCase().includes('admin')
+    (m) =>
+      m.userId.toLowerCase() !== ownerId &&
+      !m.role?.name?.toLowerCase().includes('admin') &&
+      !m.role?.name?.toLowerCase().includes('mod')
   )
 
   return (
@@ -72,7 +74,7 @@ export default function MemberPanel({ serverId: propServerId }: Props) {
       {/* Admins / Owner Section */}
       {ownerAndAdmins.length > 0 && (
         <div>
-          <h4 className="px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#949ba4]">
+          <h4 className="px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#f0b232]">
             Dono & Admins — {ownerAndAdmins.length}
           </h4>
           <div className="space-y-0.5">
@@ -81,7 +83,26 @@ export default function MemberPanel({ serverId: propServerId }: Props) {
                 key={m.userId}
                 member={m}
                 isOwner={m.userId.toLowerCase() === ownerId}
-                status={onlineUsers[m.userId]?.status || 'online'}
+                status={getUserStatus(m.userId)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Moderators Section */}
+      {moderators.length > 0 && (
+        <div>
+          <h4 className="px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#5865f2]">
+            Moderadores — {moderators.length}
+          </h4>
+          <div className="space-y-0.5">
+            {moderators.map((m) => (
+              <MemberItem
+                key={m.userId}
+                member={m}
+                isOwner={false}
+                status={getUserStatus(m.userId)}
               />
             ))}
           </div>
@@ -100,7 +121,7 @@ export default function MemberPanel({ serverId: propServerId }: Props) {
                 key={m.userId}
                 member={m}
                 isOwner={false}
-                status={onlineUsers[m.userId]?.status || 'online'}
+                status={getUserStatus(m.userId)}
               />
             ))}
           </div>
@@ -152,7 +173,7 @@ function MemberItem({
 
   const isMe = currentUser?.id === member.userId
   const isFriend = friends.some((f) => f.id === member.userId)
-  const statusColor = STATUS_COLORS[status] || STATUS_COLORS.offline
+  const statusColor = getStatusColor(status)
 
   async function handleStartDm() {
     setOpen(false)
@@ -256,8 +277,8 @@ function MemberItem({
                 </p>
                 {isOwner && <Crown size={14} className="text-[#f0b232] fill-[#f0b232]" />}
               </div>
-              <p className="text-xs text-[#949ba4] capitalize">
-                {status === 'online' ? 'Disponível' : status === 'offline' ? 'Offline' : status}
+              <p className="text-xs text-[#949ba4]">
+                {getStatusLabel(status)}
               </p>
             </div>
 

@@ -33,6 +33,7 @@ export interface Message {
   replyToId: string | null
   editedAt: string | null
   deleted: boolean
+  pinned?: boolean
   reactions: Reaction[]
   attachments?: Attachment[]
   insertedAt: string
@@ -50,8 +51,12 @@ export interface TypingUser {
 interface MessagingState {
   /** messages[channelId] = Message[] sorted oldest→newest */
   messages: Record<string, Message[]>
-  /** unread[channelId] = number of unread messages */
+  /** unread[channelId or conversationId] = number of unread messages */
   unread: Record<string, number>
+  /** channelToServer[channelId] = serverId */
+  channelToServer: Record<string, string>
+  /** dmConversations[conversationId] = true */
+  dmConversations: Record<string, boolean>
   /** lastReadMessageId[channelId] */
   lastReadMessageId: Record<string, string | null>
   /** typing[channelId] = array of typing users */
@@ -68,8 +73,13 @@ interface MessagingState {
   updateMessage: (channelId: string, messageId: string, patch: Partial<Message>) => void
   removeMessage: (channelId: string, messageId: string) => void
 
+  registerChannel: (channelId: string, serverId: string) => void
+  registerDm: (conversationId: string) => void
+  getServerUnread: (serverId: string) => number
+  getTotalDmUnread: () => number
+
   setUnread: (channelId: string, count: number) => void
-  incrementUnread: (channelId: string) => void
+  incrementUnread: (channelId: string, serverId?: string) => void
   clearUnread: (channelId: string) => void
 
   setLastRead: (channelId: string, messageId: string | null) => void
@@ -86,13 +96,48 @@ interface MessagingState {
   failMessage: (channelId: string, tempId: string) => void
 }
 
-export const useMessagingStore = create<MessagingState>((set) => ({
+export const useMessagingStore = create<MessagingState>((set, get) => ({
   messages: {},
   unread: {},
+  channelToServer: {},
+  dmConversations: {},
   lastReadMessageId: {},
   typing: {},
   loadingMore: {},
   hasMore: {},
+
+  registerChannel: (channelId, serverId) =>
+    set((s) => ({
+      channelToServer: { ...s.channelToServer, [channelId]: serverId },
+    })),
+
+  registerDm: (conversationId) =>
+    set((s) => ({
+      dmConversations: { ...s.dmConversations, [conversationId]: true },
+    })),
+
+  getServerUnread: (serverId) => {
+    const { unread, channelToServer } = get()
+    let count = 0
+    for (const [chId, unreadCount] of Object.entries(unread)) {
+      if (channelToServer[chId] === serverId) {
+        count += unreadCount
+      }
+    }
+    return count
+  },
+
+  getTotalDmUnread: () => {
+    const { unread, channelToServer } = get()
+    let count = 0
+    for (const [id, unreadCount] of Object.entries(unread)) {
+      // If not belonging to any server, it's a DM conversation
+      if (!channelToServer[id]) {
+        count += unreadCount
+      }
+    }
+    return count
+  },
 
   setMessages: (channelId, messages) =>
     set((s) => ({ messages: { ...s.messages, [channelId]: messages } })),
@@ -169,10 +214,16 @@ export const useMessagingStore = create<MessagingState>((set) => ({
   setUnread: (channelId, count) =>
     set((s) => ({ unread: { ...s.unread, [channelId]: count } })),
 
-  incrementUnread: (channelId) =>
-    set((s) => ({
-      unread: { ...s.unread, [channelId]: (s.unread[channelId] ?? 0) + 1 },
-    })),
+  incrementUnread: (channelId, serverId) =>
+    set((s) => {
+      const channelToServer = serverId
+        ? { ...s.channelToServer, [channelId]: serverId }
+        : s.channelToServer
+      return {
+        channelToServer,
+        unread: { ...s.unread, [channelId]: (s.unread[channelId] ?? 0) + 1 },
+      }
+    }),
 
   clearUnread: (channelId) =>
     set((s) => ({ unread: { ...s.unread, [channelId]: 0 } })),

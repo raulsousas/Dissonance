@@ -20,6 +20,8 @@ interface Props {
   onRemoveReact: (id: string, emoji: string) => void
   onReply: (msg: Message) => void
   onVisible: (messageId: string) => void
+  onPin?: (id: string) => void
+  onUnpin?: (id: string) => void
 }
 
 function isSameDay(a: string, b: string) {
@@ -60,6 +62,8 @@ export function MessageList({
   onRemoveReact,
   onReply,
   onVisible,
+  onPin,
+  onUnpin,
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const topRef = useRef<HTMLDivElement>(null)
@@ -170,6 +174,8 @@ export function MessageList({
               onReact={onReact}
               onRemoveReact={onRemoveReact}
               onReply={onReply}
+              onPin={onPin}
+              onUnpin={onUnpin}
             />
           </div>
         )

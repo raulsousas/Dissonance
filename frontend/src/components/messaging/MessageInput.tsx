@@ -3,11 +3,23 @@
  * file attachment upload & progress preview, reply preview, and character counter.
  */
 
-import { useState, useRef, useCallback } from 'react'
-import { SendHorizonal, X, FileText } from 'lucide-react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { SendHorizonal, X, FileText, Hash, Volume2, AtSign, Users } from 'lucide-react'
 import type { Message, Attachment } from '@/stores/messagingStore'
 import { EmojiPicker } from './EmojiPicker'
 import { GifPicker } from './GifPicker'
+
+export interface MentionMember {
+  id: string
+  displayName: string
+  avatarUrl?: string | null
+}
+
+export interface MentionChannel {
+  id: string
+  name: string
+  type: string
+}
 
 interface Props {
   channelName: string
@@ -17,6 +29,8 @@ interface Props {
   onSend: (content: string, replyToId?: string, attachments?: Attachment[], files?: File[]) => void
   onTyping: () => void
   onStopTyping: () => void
+  members?: MentionMember[]
+  channels?: MentionChannel[]
 }
 
 const MAX_LENGTH = 4000
@@ -37,9 +51,18 @@ export function MessageInput({
   onSend,
   onTyping,
   onStopTyping,
+  members = [],
+  channels = [],
 }: Props) {
   const [content, setContent] = useState('')
   const [pendingFiles, setPendingFiles] = useState<{ file: File; previewUrl?: string }[]>([])
+  const [autocomplete, setAutocomplete] = useState<{
+    trigger: '@' | '#'
+    query: string
+    startIndex: number
+  } | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -105,7 +128,87 @@ export function MessageInput({
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }, [content, pendingFiles, replyTo, onSend, onCancelReply, onStopTyping])
 
+  // Compute autocomplete options based on trigger and query
+  const autocompleteItems = (() => {
+    if (!autocomplete) return []
+    const q = autocomplete.query.toLowerCase()
+
+    if (autocomplete.trigger === '@') {
+      const list: Array<{ id: string; name: string; avatarUrl?: string | null; isSpecial?: boolean; desc?: string }> = []
+      if ('everyone'.includes(q)) {
+        list.push({ id: 'everyone', name: 'everyone', isSpecial: true, desc: 'Notificar todos no canal' })
+      }
+      if ('here'.includes(q)) {
+        list.push({ id: 'here', name: 'here', isSpecial: true, desc: 'Notificar membros online' })
+      }
+      members
+        .filter((m) => m.displayName.toLowerCase().includes(q))
+        .forEach((m) => {
+          list.push({ id: m.id, name: m.displayName, avatarUrl: m.avatarUrl })
+        })
+      return list.slice(0, 8)
+    }
+
+    if (autocomplete.trigger === '#') {
+      return channels
+        .filter((c) => c.name.toLowerCase().includes(q))
+        .map((c) => ({ id: c.id, name: c.name, type: c.type }))
+        .slice(0, 8)
+    }
+
+    return []
+  })()
+
+  // Reset selectedIndex when query/items change
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [autocomplete?.query, autocomplete?.trigger])
+
+  function selectAutocompleteItem(item: { name: string }) {
+    if (!autocomplete || !textareaRef.current) return
+    const beforeTrigger = content.slice(0, autocomplete.startIndex)
+    const afterCursor = content.slice(textareaRef.current.selectionStart || autocomplete.startIndex + autocomplete.query.length + 1)
+    const insertion = `${autocomplete.trigger}${item.name} `
+    const newContent = beforeTrigger + insertion + afterCursor
+    setContent(newContent)
+    setAutocomplete(null)
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+        const newPos = beforeTrigger.length + insertion.length
+        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos
+      }
+    }, 0)
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (autocomplete && autocompleteItems.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedIndex((prev) => (prev + 1) % autocompleteItems.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedIndex((prev) => (prev - 1 + autocompleteItems.length) % autocompleteItems.length)
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        const chosen = autocompleteItems[selectedIndex]
+        if (chosen) {
+          selectAutocompleteItem(chosen)
+          return
+        }
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setAutocomplete(null)
+        return
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -113,11 +216,26 @@ export function MessageInput({
   }
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setContent(e.target.value)
+    const val = e.target.value
+    setContent(val)
     onTyping()
     const el = e.target
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+
+    // Check for @ or # triggers
+    const cursor = el.selectionStart || val.length
+    const textBefore = val.slice(0, cursor)
+    const match = textBefore.match(/(?:^|\s)([@#])([a-zA-Z0-9_\-\u00C0-\u017F]*)$/)
+
+    if (match) {
+      const trigger = match[1] as '@' | '#'
+      const query = match[2]
+      const startIndex = cursor - query.length - 1
+      setAutocomplete({ trigger, query, startIndex })
+    } else {
+      setAutocomplete(null)
+    }
   }
 
   const overLimit = content.length > MAX_LENGTH
@@ -140,7 +258,58 @@ export function MessageInput({
   }
 
   return (
-    <div className="px-4 pb-6 shrink-0">
+    <div className="relative px-4 pb-6 shrink-0">
+      {/* Autocomplete Mention / Channel Popover */}
+      {autocomplete && autocompleteItems.length > 0 && (
+        <div className="absolute left-4 right-4 bottom-[calc(100%-8px)] mb-2 bg-[#2b2d31] rounded-lg shadow-2xl border border-[#1f2023] overflow-hidden z-50 text-xs">
+          <div className="px-3 py-1.5 bg-[#1e1f22] text-[#949ba4] font-semibold uppercase text-[10px] tracking-wider border-b border-[#232428] flex items-center justify-between">
+            <span>{autocomplete.trigger === '@' ? 'Membros & Menções' : 'Canais'}</span>
+            <span className="text-[9px] font-normal lowercase">Tab ou Enter para selecionar</span>
+          </div>
+          <div className="max-h-52 overflow-y-auto py-1">
+            {autocompleteItems.map((item, idx) => {
+              const isSelected = idx === selectedIndex
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => selectAutocompleteItem(item)}
+                  onMouseEnter={() => setSelectedIndex(idx)}
+                  className={`w-full px-3 py-2 flex items-center gap-2 text-left transition-colors cursor-pointer ${
+                    isSelected ? 'bg-[#35373c] text-white' : 'text-[#dbdee1] hover:bg-[#35373c]/50'
+                  }`}
+                >
+                  {autocomplete.trigger === '@' ? (
+                    'isSpecial' in item && item.isSpecial ? (
+                      <div className="w-6 h-6 rounded-full bg-[#f0b232]/20 text-[#f0b232] flex items-center justify-center font-bold text-xs shrink-0">
+                        <Users size={13} />
+                      </div>
+                    ) : item.avatarUrl ? (
+                      <img src={item.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-[#5865f2] text-white flex items-center justify-center font-semibold text-xs shrink-0">
+                        {item.name[0]?.toUpperCase() ?? '?'}
+                      </div>
+                    )
+                  ) : 'type' in item && item.type === 'voice' ? (
+                    <Volume2 size={16} className="text-[#949ba4] shrink-0" />
+                  ) : (
+                    <Hash size={16} className="text-[#949ba4] shrink-0" />
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-sm truncate block">{item.name}</span>
+                    {'desc' in item && item.desc && (
+                      <span className="text-[11px] text-[#949ba4] block truncate">{item.desc}</span>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Hidden file input */}
       <input
         ref={fileInputRef}

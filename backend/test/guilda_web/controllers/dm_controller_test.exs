@@ -73,6 +73,42 @@ defmodule GuildaWeb.DmControllerTest do
       assert length(list_json["messages"]) == 1
     end
 
+    test "POST /api/dm/:id/messages with attachments", %{conn: conn} do
+      u1 = insert_user()
+      u2 = insert_user()
+
+      {:ok, conv} = DirectMessaging.get_or_create_conversation(u1.id, u2.id)
+
+      attachment = %{
+        "id" => Ecto.UUID.generate(),
+        "url" => "/uploads/test.png",
+        "filename" => "test.png",
+        "size" => 1234,
+        "contentType" => "image/png"
+      }
+
+      conn1 =
+        conn
+        |> authenticated_conn(u1)
+        |> post(~p"/api/dm/#{conv.id}/messages", %{
+          content: "Image attachment test",
+          attachments: [attachment]
+        })
+
+      assert json = json_response(conn1, 201)
+      assert json["data"]["content"] == "Image attachment test"
+      assert length(json["data"]["attachments"]) == 1
+
+      conn2 =
+        conn
+        |> authenticated_conn(u2)
+        |> get(~p"/api/dm/#{conv.id}/messages")
+
+      assert list_json = json_response(conn2, 200)
+      assert length(list_json["messages"]) == 1
+      assert length(hd(list_json["messages"])["attachments"]) == 1
+    end
+
     test "stranger cannot read DM messages", %{conn: conn} do
       u1 = insert_user()
       u2 = insert_user()

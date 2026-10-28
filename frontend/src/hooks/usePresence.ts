@@ -4,10 +4,19 @@ import {
   usePresenceStore,
   initGlobalPresence,
   updateGlobalVoiceChannel,
+  updateGlobalStatus,
+  getStatusLabel,
+  getStatusColor,
   type UserPresenceInfo,
 } from '@/stores/presenceStore'
 
-export { updateGlobalVoiceChannel, type UserPresenceInfo }
+export {
+  updateGlobalVoiceChannel,
+  updateGlobalStatus,
+  getStatusLabel,
+  getStatusColor,
+  type UserPresenceInfo,
+}
 
 export function usePresence() {
   const { currentUser: user } = useAuth()
@@ -18,7 +27,7 @@ export function usePresence() {
 
   useEffect(() => {
     if (user?.token) {
-      initGlobalPresence(user.token)
+      initGlobalPresence(user.token, user.status)
     } else {
       initGlobalPresence(null)
     }

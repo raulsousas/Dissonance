@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useVoiceStore } from '@/stores/voiceStore'
 import { useVoice } from '@/hooks/useVoice'
 import { usePresence } from '@/hooks/usePresence'
+import { useMessagingStore } from '@/stores/messagingStore'
 import { ServerSettingsModal } from '@/components/modals/ServerSettingsModal'
 import { toast } from '@/stores/toastStore'
 
@@ -406,6 +407,12 @@ function ChannelRow({
   const voiceStore = useVoiceStore()
   const { joinVoice } = useVoice()
   const { onlineUsers } = usePresence()
+  const unread = useMessagingStore((s) => s.unread[channel.id] || 0)
+  const registerChannel = useMessagingStore((s) => s.registerChannel)
+
+  useEffect(() => {
+    registerChannel(channel.id, serverId)
+  }, [channel.id, serverId, registerChannel])
 
   const isCurrentVoiceActive =
     voiceStore.activeChannelId === channel.id &&
@@ -472,18 +479,31 @@ function ChannelRow({
         }`}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
+          {unread > 0 && !active && (
+            <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 -ml-1 animate-pulse" />
+          )}
           <Icon
             size={18}
             className={`shrink-0 ${
               active
+                ? 'text-white'
+                : unread > 0
                 ? 'text-white'
                 : isVoice && (isCurrentVoiceActive || hasConnectedUsers)
                 ? 'text-[#23a55a]'
                 : 'text-[#80848e] group-hover:text-[#dbdee1]'
             }`}
           />
-          <span className="truncate">{channel.name}</span>
+          <span className={`truncate ${unread > 0 && !active ? 'text-[#f2f3f5] font-bold' : ''}`}>
+            {channel.name}
+          </span>
         </div>
+
+        {unread > 0 && !active && (
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f23f43] text-white shrink-0 mr-1 shadow animate-in fade-in zoom-in duration-150">
+            {unread > 99 ? '99+' : unread}
+          </span>
+        )}
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button

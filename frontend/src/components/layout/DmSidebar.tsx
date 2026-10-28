@@ -5,14 +5,15 @@ import * as Avatar from '@radix-ui/react-avatar'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useConversations, useCreateConversation, type Conversation } from '@/hooks/useConversations'
 import { useFriends, usePendingRequests } from '@/hooks/useFriends'
-import { usePresence } from '@/hooks/usePresence'
+import { usePresence, getStatusLabel, getStatusColor } from '@/hooks/usePresence'
+import { useMessagingStore } from '@/stores/messagingStore'
 
 export default function DmSidebar() {
   const navigate = useNavigate()
   const { conversationId } = useParams()
   const { data: conversations = [] } = useConversations()
   const { data: pendingRequests } = usePendingRequests()
-  const { isUserOnline } = usePresence()
+  const { isUserOnline, getUserStatus } = usePresence()
   const [newDmOpen, setNewDmOpen] = useState(false)
 
   const pendingCount = (pendingRequests?.incoming.length ?? 0)
@@ -76,13 +77,13 @@ export default function DmSidebar() {
         ) : (
           conversations.map((conv) => {
             const active = conv.id === conversationId
-            const online = isUserOnline(conv.recipient.id)
+            const status = getUserStatus(conv.recipient.id)
             return (
               <ConversationItem
                 key={conv.id}
                 conversation={conv}
                 active={active}
-                online={online}
+                status={status}
                 onClick={() => navigate(`/app/dm/${conv.id}`)}
               />
             )
@@ -98,49 +99,62 @@ export default function DmSidebar() {
 function ConversationItem({
   conversation,
   active,
-  online,
+  status,
   onClick,
 }: {
   conversation: Conversation
   active: boolean
-  online: boolean
+  status: string
   onClick: () => void
 }) {
   const { recipient, lastMessage } = conversation
+  const statusColor = getStatusColor(status)
+  const statusLabel = getStatusLabel(status)
+  const unread = useMessagingStore((s) => s.unread[conversation.id] || 0)
 
   return (
     <button
       onClick={onClick}
-      className={`group flex items-center gap-3 w-full px-2.5 py-2 rounded text-sm transition-colors text-left cursor-pointer ${
+      className={`group flex items-center justify-between gap-3 w-full px-2.5 py-2 rounded text-sm transition-colors text-left cursor-pointer ${
         active
           ? 'bg-[#3f4248] text-white font-semibold'
+          : unread > 0
+          ? 'text-[#f2f3f5] font-semibold hover:bg-[#35373c]'
           : 'text-[#949ba4] hover:bg-[#35373c] hover:text-[#dbdee1]'
       }`}
     >
-      <div className="relative shrink-0">
-        <Avatar.Root className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-gray-600">
-          <Avatar.Image src={recipient.avatarUrl ?? undefined} alt={recipient.displayName} className="w-full h-full object-cover" />
-          <Avatar.Fallback className="text-xs font-bold text-white">
-            {recipient.displayName[0]?.toUpperCase() ?? '?'}
-          </Avatar.Fallback>
-        </Avatar.Root>
-        <span
-          className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
-          style={{
-            borderColor: 'var(--color-bg-secondary)',
-            background: online ? 'var(--color-online)' : 'var(--color-offline)',
-          }}
-        />
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="relative shrink-0">
+          <Avatar.Root className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-gray-600">
+            <Avatar.Image src={recipient.avatarUrl ?? undefined} alt={recipient.displayName} className="w-full h-full object-cover" />
+            <Avatar.Fallback className="text-xs font-bold text-white">
+              {recipient.displayName[0]?.toUpperCase() ?? '?'}
+            </Avatar.Fallback>
+          </Avatar.Root>
+          <span
+            className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
+            style={{
+              borderColor: 'var(--color-bg-secondary)',
+              background: statusColor,
+            }}
+          />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm truncate ${active || unread > 0 ? 'text-white font-semibold' : 'text-[#dbdee1]'}`}>
+            {recipient.displayName}
+          </p>
+          <p className="text-xs truncate text-[#949ba4]">
+            {lastMessage?.content || statusLabel}
+          </p>
+        </div>
       </div>
 
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm truncate ${active ? 'text-white font-semibold' : 'text-[#dbdee1]'}`}>
-          {recipient.displayName}
-        </p>
-        <p className="text-xs truncate text-[#949ba4]">
-          {lastMessage?.content || (online ? 'Disponível' : 'Offline')}
-        </p>
-      </div>
+      {unread > 0 && !active && (
+        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f23f43] text-white shrink-0 shadow animate-in fade-in zoom-in duration-150">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
     </button>
   )
 }

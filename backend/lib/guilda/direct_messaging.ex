@@ -219,4 +219,36 @@ defmodule Guilda.DirectMessaging do
     |> DirectMessage.changeset(%{deleted: true, content: "[deleted]"})
     |> Repo.update()
   end
+
+  @doc "Pins a direct message."
+  def pin_message(%DirectMessage{} = msg) do
+    msg
+    |> DirectMessage.pin_changeset(true)
+    |> Repo.update()
+    |> case do
+      {:ok, updated} -> {:ok, Repo.preload(updated, :author)}
+      err -> err
+    end
+  end
+
+  @doc "Unpins a direct message."
+  def unpin_message(%DirectMessage{} = msg) do
+    msg
+    |> DirectMessage.pin_changeset(false)
+    |> Repo.update()
+    |> case do
+      {:ok, updated} -> {:ok, Repo.preload(updated, :author)}
+      err -> err
+    end
+  end
+
+  @doc "Lists pinned direct messages in a conversation."
+  def list_pinned_messages(conversation_id) do
+    from(m in DirectMessage,
+      where: m.conversation_id == ^conversation_id and m.pinned == true and m.deleted == false,
+      preload: [author: ^from(u in User, select: [:id, :display_name, :avatar_url])],
+      order_by: [desc: m.inserted_at]
+    )
+    |> Repo.all()
+  end
 end

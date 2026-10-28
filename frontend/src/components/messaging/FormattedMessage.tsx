@@ -40,8 +40,8 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
 }
 
 function renderInlineMarkdown(text: string): React.ReactNode[] {
-  // Regex to split by bold (**text**), strikethrough (~~text~~), italics (*text* or _text_), inline code (`code`), or URL
-  const tokenRegex = /(https?:\/\/[^\s]+)|(```[\s\S]*?```)|(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(\*[^*]+\*)|(_[^_]+_)/g
+  // Regex to split by bold (**text**), strikethrough (~~text~~), italics (*text* or _text_), inline code (`code`), URL, or mentions (@user, #channel)
+  const tokenRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)|(```[\s\S]*?```)|(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(\*[^*]+\*)|(_[^_]+_)|(@everyone|@here|@[a-zA-Z0-9_\-\u00C0-\u017F]+)|(#[a-zA-Z0-9_\-]+)/g
 
   const parts: React.ReactNode[] = []
   let lastIndex = 0
@@ -54,26 +54,36 @@ function renderInlineMarkdown(text: string): React.ReactNode[] {
 
     const matched = match[0]
 
-    if (matched.startsWith('http://') || matched.startsWith('https://')) {
+    if (matched.startsWith('http://') || matched.startsWith('https://') || matched.startsWith('www.')) {
+      let cleanUrl = matched
+      let trailingPunct = ''
+      const punctMatch = cleanUrl.match(/[.,!?:;)]+$/)
+      if (punctMatch) {
+        trailingPunct = punctMatch[0]
+        cleanUrl = cleanUrl.slice(0, -trailingPunct.length)
+      }
+
+      const href = cleanUrl.startsWith('www.') ? `https://${cleanUrl}` : cleanUrl
       const isImageOrGif =
-        /\.(gif|jpe?g|png|webp)($|\?)/i.test(matched) ||
-        matched.includes('giphy.com/media') ||
-        matched.includes('tenor.com')
+        /\.(gif|jpe?g|png|webp)($|\?)/i.test(cleanUrl) ||
+        cleanUrl.includes('giphy.com/media') ||
+        cleanUrl.includes('tenor.com')
 
       parts.push(
         <span key={match.index} className="inline-block">
           <a
-            href={matched}
+            href={href}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[#00a8fc] hover:underline break-all"
           >
-            {matched}
+            {cleanUrl}
           </a>
+          {trailingPunct}
           {isImageOrGif && (
             <div className="mt-1.5 rounded-lg overflow-hidden max-w-sm max-h-80 border border-[#2b2d31] bg-[#1e1f22]">
               <img
-                src={matched}
+                src={href}
                 alt="GIF / Anexo"
                 className="w-full h-auto object-contain rounded"
                 loading="lazy"
@@ -111,6 +121,33 @@ function renderInlineMarkdown(text: string): React.ReactNode[] {
         <em key={match.index} className="italic text-[#dbdee1]">
           {matched.slice(1, -1)}
         </em>
+      )
+    } else if (matched === '@everyone' || matched === '@here') {
+      parts.push(
+        <span
+          key={match.index}
+          className="px-1.5 py-0.5 rounded bg-[#f0b232]/20 text-[#f0b232] font-semibold select-all cursor-pointer hover:bg-[#f0b232]/30 transition-colors"
+        >
+          {matched}
+        </span>
+      )
+    } else if (matched.startsWith('@')) {
+      parts.push(
+        <span
+          key={match.index}
+          className="px-1.5 py-0.5 rounded bg-[#5865f2]/20 text-[#c9cdfb] hover:bg-[#5865f2] hover:text-white font-medium select-all cursor-pointer transition-colors"
+        >
+          {matched}
+        </span>
+      )
+    } else if (matched.startsWith('#')) {
+      parts.push(
+        <span
+          key={match.index}
+          className="px-1.5 py-0.5 rounded bg-[#35373c] text-[#dbdee1] hover:bg-[#404249] font-medium cursor-pointer transition-colors inline-flex items-center gap-0.5"
+        >
+          {matched}
+        </span>
       )
     } else {
       parts.push(matched)

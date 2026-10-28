@@ -114,7 +114,7 @@ export default function AdminPage() {
             </div>
             <div>
               <h1 className="text-sm font-bold text-[#f2f3f5]">Painel Admin</h1>
-              <span className="text-[11px] text-[#949ba4]">Guilda System</span>
+              <span className="text-[11px] text-[#949ba4]">Dissonance System</span>
             </div>
           </div>
         </div>
@@ -277,7 +277,7 @@ export default function AdminPage() {
               <div>
                 <h2 className="text-xl font-bold text-[#f2f3f5]">Allowlist de E-mails</h2>
                 <p className="text-xs text-[#949ba4]">
-                  E-mails nesta lista têm permissão garantida para efetuar login no Guilda.
+                  E-mails nesta lista têm permissão garantida para efetuar login no Dissonance.
                 </p>
               </div>
 

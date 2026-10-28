@@ -6,7 +6,7 @@
 import { useState, useRef } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Pencil, Trash2, Reply, Check, X, FileText, Download } from 'lucide-react'
+import { Pencil, Trash2, Reply, Check, X, FileText, Download, Pin } from 'lucide-react'
 import type { Message, Attachment } from '@/stores/messagingStore'
 import { useAuth } from '@/hooks/useAuth'
 import { FormattedMessage } from './FormattedMessage'
@@ -19,6 +19,8 @@ interface Props {
   onReact: (id: string, emoji: string) => void
   onRemoveReact: (id: string, emoji: string) => void
   onReply: (message: Message) => void
+  onPin?: (id: string) => void
+  onUnpin?: (id: string) => void
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉']
@@ -39,7 +41,7 @@ function formatDate(iso: string) {
   return `${d.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' })} ${formatTime(iso)}`
 }
 
-export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact, onReply }: Props) {
+export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact, onReply, onPin, onUnpin }: Props) {
   const { currentUser: user } = useAuth()
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
@@ -71,6 +73,16 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
     message.reactions.filter((r) => r.userIds.includes(user?.id ?? '')).map((r) => r.emoji)
   )
 
+  const isMentioned = Boolean(
+    user &&
+    message.content &&
+    (
+      (user.displayName && message.content.includes(`@${user.displayName}`)) ||
+      message.content.includes('@everyone') ||
+      message.content.includes('@here')
+    )
+  )
+
   if (message.deleted) {
     return (
       <div className="px-4 py-0.5 flex items-start gap-3 group opacity-50">
@@ -86,7 +98,11 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>
         <div
-          className={`relative px-4 py-0.5 flex items-start gap-3 group rounded hover:bg-[#2e3035]/60 transition-colors ${
+          className={`relative px-4 py-0.5 flex items-start gap-3 group rounded transition-colors ${
+            isMentioned
+              ? 'bg-[#f0b232]/[0.08] hover:bg-[#f0b232]/[0.12] border-l-2 border-[#f0b232]'
+              : 'hover:bg-[#2e3035]/60'
+          } ${
             message.pending ? 'opacity-60' : message.failed ? 'opacity-40' : ''
           }`}
         >
@@ -117,6 +133,14 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
               {message.editedAt && (
                 <span className="text-[10px] text-[#949ba4]">
                   (editado)
+                </span>
+              )}
+              {message.pinned && (
+                <span
+                  className="inline-flex items-center gap-0.5 text-[10px] text-[#f0b232] bg-[#f0b232]/10 px-1 py-0.5 rounded font-medium"
+                  title="Mensagem fixada"
+                >
+                  <Pin size={10} className="fill-current" /> Fixada
                 </span>
               )}
               {message.failed && (
@@ -245,6 +269,17 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
             >
               <Reply size={14} style={{ color: 'var(--color-text-muted)' }} />
             </button>
+            {(onPin || onUnpin) && (
+              <button
+                onClick={() => (message.pinned ? onUnpin?.(message.id) : onPin?.(message.id))}
+                className={`p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer ${
+                  message.pinned ? 'text-[#f0b232]' : 'text-[#949ba4]'
+                }`}
+                title={message.pinned ? 'Desafixar Mensagem' : 'Fixar Mensagem'}
+              >
+                <Pin size={14} className={message.pinned ? 'fill-current' : ''} />
+              </button>
+            )}
             {isAuthor && (
               <>
                 <button
@@ -279,6 +314,15 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
           >
             <Reply size={14} /> Reply
           </ContextMenu.Item>
+          {(onPin || onUnpin) && (
+            <ContextMenu.Item
+              className="px-3 py-1.5 rounded cursor-pointer flex items-center gap-2 hover:bg-white/10 outline-none text-[#dbdee1]"
+              onSelect={() => (message.pinned ? onUnpin?.(message.id) : onPin?.(message.id))}
+            >
+              <Pin size={14} className={message.pinned ? 'text-[#f0b232] fill-current' : ''} />
+              {message.pinned ? 'Desafixar Mensagem' : 'Fixar Mensagem'}
+            </ContextMenu.Item>
+          )}
           {QUICK_EMOJIS.slice(0, 3).map((emoji) => (
             <ContextMenu.Item
               key={emoji}

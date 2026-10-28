@@ -2,7 +2,7 @@
  * UserSettingsModal — Discord-style full-screen overlay settings modal.
  */
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Avatar from '@radix-ui/react-avatar'
@@ -19,7 +19,7 @@ interface Props {
 type Tab = 'account' | 'appearance' | 'voice'
 
 export function UserSettingsModal({ open, onClose }: Props) {
-  const { currentUser, logout } = useAuth()
+  const { currentUser, logout, updateUser } = useAuth()
   const { theme, setTheme } = useThemeStore()
   const [activeTab, setActiveTab] = useState<Tab>('account')
   const navigate = useNavigate()
@@ -31,6 +31,16 @@ export function UserSettingsModal({ open, onClose }: Props) {
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (currentUser) {
+      setDisplayName(currentUser.displayName)
+      setStatus(currentUser.status || 'online')
+      setAvatarUrl(currentUser.avatarUrl ?? '')
+      setCustomStatus(localStorage.getItem('guilda-custom-status') || '')
+      setBannerColor(localStorage.getItem('guilda-banner-color') || '#5865f2')
+    }
+  }, [currentUser, open])
 
   const BANNER_COLORS = ['#5865f2', '#eb459e', '#57f287', '#fee75c', '#ed4245', '#1e1f22', '#3ba55d', '#00a8fc']
 
@@ -71,29 +81,20 @@ export function UserSettingsModal({ open, onClose }: Props) {
     setSaving(true)
     setSaveSuccess(false)
     try {
-      const res = await fetch('/api/me', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          displayName,
-          status,
-          avatarUrl: avatarUrl || null,
-        }),
-        credentials: 'include',
+      await updateUser({
+        displayName,
+        status: status as any,
+        avatarUrl: avatarUrl || null,
       })
-      if (res.ok) {
-        localStorage.setItem('guilda-custom-status', customStatus)
-        localStorage.setItem('guilda-banner-color', bannerColor)
-        setSaveSuccess(true)
-        toast.success('Perfil atualizado com sucesso!')
-        setTimeout(() => setSaveSuccess(false), 2500)
-        window.location.reload()
-      } else {
-        toast.error('Erro ao atualizar perfil', 'Verifique os dados e tente novamente.')
-      }
+      localStorage.setItem('guilda-custom-status', customStatus)
+      localStorage.setItem('guilda-banner-color', bannerColor)
+      window.dispatchEvent(new Event('guilda-custom-status-updated'))
+      setSaveSuccess(true)
+      toast.success('Perfil atualizado com sucesso!')
+      setTimeout(() => setSaveSuccess(false), 2500)
     } catch (err) {
       console.error('Failed to update profile:', err)
-      toast.error('Erro de conexão ao salvar perfil')
+      toast.error('Erro ao salvar perfil')
     } finally {
       setSaving(false)
     }

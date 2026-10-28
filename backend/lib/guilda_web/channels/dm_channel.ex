@@ -23,13 +23,21 @@ defmodule GuildaWeb.DmChannel do
   end
 
   @impl true
-  def handle_in("new_message", %{"content" => content}, socket) do
+  def handle_in("new_message", payload, socket) do
     user = socket.assigns.current_user
     conv_id = socket.assigns.conversation_id
+    content = Map.get(payload, "content", "")
+    attachments = Map.get(payload, "attachments", [])
 
-    case DirectMessaging.create_message(conv_id, user, %{content: content}) do
+    attrs = %{
+      content: content,
+      attachments: attachments
+    }
+
+    case DirectMessaging.create_message(conv_id, user, attrs) do
       {:ok, message} ->
-        broadcast!(socket, "new_message", serialize_message(message))
+        serialized = serialize_message(message)
+        broadcast!(socket, "new_message", serialized)
 
         # Notify other member(s) via their personal notification channel
         DirectMessaging.list_member_ids(conv_id)
@@ -37,7 +45,7 @@ defmodule GuildaWeb.DmChannel do
         |> Enum.each(fn recipient_id ->
           GuildaWeb.Endpoint.broadcast("user:#{recipient_id}", "new_dm", %{
             conversationId: conv_id,
-            message: serialize_message(message)
+            message: serialized
           })
         end)
 
@@ -93,6 +101,30 @@ defmodule GuildaWeb.DmChannel do
     end
   end
 
+  def handle_in("pin_message", %{"message_id" => msg_id}, socket) do
+    case DirectMessaging.get_message(msg_id) do
+      nil ->
+        {:reply, {:error, %{reason: "not_found"}}, socket}
+
+      msg ->
+        {:ok, updated} = DirectMessaging.pin_message(msg)
+        broadcast!(socket, "message_pinned", %{id: updated.id, pinned: true})
+        {:reply, :ok, socket}
+    end
+  end
+
+  def handle_in("unpin_message", %{"message_id" => msg_id}, socket) do
+    case DirectMessaging.get_message(msg_id) do
+      nil ->
+        {:reply, {:error, %{reason: "not_found"}}, socket}
+
+      msg ->
+        {:ok, updated} = DirectMessaging.unpin_message(msg)
+        broadcast!(socket, "message_unpinned", %{id: updated.id, pinned: false})
+        {:reply, :ok, socket}
+    end
+  end
+
   def handle_in("typing_start", _payload, socket) do
     user = socket.assigns.current_user
     broadcast_from!(socket, "typing", %{userId: user.id, displayName: user.display_name, typing: true})
@@ -113,8 +145,10 @@ defmodule GuildaWeb.DmChannel do
       authorId: m.author_id,
       authorName: m.author && m.author.display_name,
       authorAvatar: m.author && m.author.avatar_url,
+      attachments: m.attachments || [],
       editedAt: m.edited_at,
       deleted: m.deleted,
+      pinned: m.pinned || false,
       insertedAt: m.inserted_at
     }
   end

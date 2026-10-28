@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import * as Popover from '@radix-ui/react-popover'
 import { Hash, Users, Pin, Search, Bell, Inbox, HelpCircle, X } from 'lucide-react'
 import { useChannel } from '@/hooks/useChannel'
-import { useChannels } from '@/hooks/useServers'
+import { useChannels, useServerDetail } from '@/hooks/useServers'
 import { MessageList } from '@/components/messaging/MessageList'
 import { MessageInput } from '@/components/messaging/MessageInput'
 import { TypingIndicator } from '@/components/messaging/TypingIndicator'
@@ -26,12 +26,39 @@ export default function ChannelPage() {
     return <VoiceChannelPanel channelId={channelId} serverId={serverId} channelName={channelName} />
   }
 
-  return <TextChannelView channelId={channelId} channelName={channelName} />
+  return (
+    <TextChannelView
+      serverId={serverId}
+      channelId={channelId}
+      channelName={channelName}
+      channels={allChannels}
+    />
+  )
 }
 
-function TextChannelView({ channelId, channelName }: { channelId: string; channelName: string }) {
+function TextChannelView({
+  serverId,
+  channelId,
+  channelName,
+  channels,
+}: {
+  serverId: string
+  channelId: string
+  channelName: string
+  channels: { id: string; name: string; type: string }[]
+}) {
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+
+  const { data: serverDetail } = useServerDetail(serverId)
+  const members =
+    serverDetail?.members?.map((m) => ({
+      id: m.userId,
+      displayName: m.displayName,
+      avatarUrl: m.avatarUrl,
+    })) ?? []
+
+  const [searchFocused, setSearchFocused] = useState(false)
 
   const {
     messages,
@@ -43,6 +70,8 @@ function TextChannelView({ channelId, channelName }: { channelId: string; channe
     deleteMessage,
     addReaction,
     removeReaction,
+    pinMessage,
+    unpinMessage,
     sendTyping,
     sendStopTyping,
     loadMore,
@@ -64,12 +93,35 @@ function TextChannelView({ channelId, channelName }: { channelId: string; channe
     setReplyTo(null)
   }, [])
 
+  const pinnedMessages = messages.filter((m) => m.pinned)
+
   const filteredMessages = searchQuery.trim()
-    ? messages.filter(
-        (m) =>
-          m.content?.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-          m.authorName?.toLowerCase().includes(searchQuery.toLowerCase().trim())
-      )
+    ? messages.filter((m) => {
+        const tokens = searchQuery.trim().split(/\s+/)
+        return tokens.every((token) => {
+          if (token.startsWith('from:')) {
+            const author = token.slice(5).toLowerCase()
+            return m.authorName?.toLowerCase().includes(author)
+          }
+          if (token === 'has:link') {
+            return Boolean(m.content?.match(/https?:\/\/|www\./i))
+          }
+          if (token === 'has:image' || token === 'has:file') {
+            return Boolean(
+              (m.attachments && m.attachments.length > 0) ||
+              m.content?.match(/\.(png|jpe?g|gif|webp)/i)
+            )
+          }
+          if (token === 'pinned:true' || token === 'is:pinned') {
+            return Boolean(m.pinned)
+          }
+          const lower = token.toLowerCase()
+          return (
+            m.content?.toLowerCase().includes(lower) ||
+            m.authorName?.toLowerCase().includes(lower)
+          )
+        })
+      })
     : messages
 
   return (
@@ -93,9 +145,16 @@ function TextChannelView({ channelId, channelName }: { channelId: string; channe
             <Popover.Trigger asChild>
               <button
                 title="Mensagens fixadas"
-                className="hover:text-white cursor-pointer transition-colors p-1 rounded"
+                className={`hover:text-white cursor-pointer transition-colors p-1.5 rounded relative ${
+                  pinnedMessages.length > 0 ? 'text-[#f0b232]' : ''
+                }`}
               >
-                <Pin size={18} />
+                <Pin size={18} className={pinnedMessages.length > 0 ? 'fill-current' : ''} />
+                {pinnedMessages.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-[#5865f2] text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                    {pinnedMessages.length}
+                  </span>
+                )}
               </button>
             </Popover.Trigger>
             <Popover.Portal>
@@ -106,19 +165,26 @@ function TextChannelView({ channelId, channelName }: { channelId: string; channe
               >
                 <div className="flex items-center justify-between border-b border-[#1f2023] pb-2 font-bold text-sm text-[#f2f3f5]">
                   <span className="flex items-center gap-1.5">
-                    <Pin size={15} className="text-[#5865f2]" /> Mensagens Fixadas
+                    <Pin size={15} className="text-[#f0b232] fill-current" /> Mensagens Fixadas ({pinnedMessages.length})
                   </span>
                 </div>
                 <div className="overflow-y-auto space-y-2 max-h-64 py-1">
-                  {messages.length === 0 ? (
+                  {pinnedMessages.length === 0 ? (
                     <p className="text-center py-6 text-[#949ba4]">Nenhuma mensagem fixada ainda.</p>
                   ) : (
-                    messages.slice(0, 3).map((m) => (
+                    pinnedMessages.map((m) => (
                       <div key={m.id} className="p-2.5 rounded bg-[#1e1f22] border border-[#232428] space-y-1">
                         <div className="flex items-center justify-between font-semibold text-[#f2f3f5]">
-                          <span>{m.authorName || 'Membro'}</span>
+                          <span className="text-xs text-[#00a8fc]">{m.authorName || 'Membro'}</span>
+                          <button
+                            onClick={() => unpinMessage(m.id)}
+                            className="text-[#949ba4] hover:text-[#f23f43] p-1 rounded transition-colors cursor-pointer"
+                            title="Desafixar"
+                          >
+                            <X size={12} />
+                          </button>
                         </div>
-                        <p className="text-[#dbdee1] truncate">{m.content || '[Anexo / Imagem]'}</p>
+                        <p className="text-[#dbdee1] text-xs line-clamp-3">{m.content || '[Anexo / Imagem]'}</p>
                       </div>
                     ))
                   )}
@@ -127,13 +193,15 @@ function TextChannelView({ channelId, channelName }: { channelId: string; channe
             </Popover.Portal>
           </Popover.Root>
 
-          {/* Quick search input in server header */}
+          {/* Quick search input with filter helper */}
           <div className="relative hidden sm:block">
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
               placeholder={`Buscar em #${channelName}`}
-              className="w-40 focus:w-64 transition-all pl-2.5 pr-7 py-1 text-xs rounded bg-[#1e1f22] text-[#dbdee1] placeholder-[#949ba4] outline-none border border-[#1e1f22] focus:border-[#5865f2]"
+              className="w-44 focus:w-64 transition-all pl-2.5 pr-7 py-1 text-xs rounded bg-[#1e1f22] text-[#dbdee1] placeholder-[#949ba4] outline-none border border-[#1e1f22] focus:border-[#5865f2]"
             />
             {searchQuery ? (
               <button
@@ -144,6 +212,49 @@ function TextChannelView({ channelId, channelName }: { channelId: string; channe
               </button>
             ) : (
               <Search size={13} className="absolute right-2 top-1.5 text-[#949ba4] pointer-events-none" />
+            )}
+
+            {/* Search filter helper popover */}
+            {searchFocused && !searchQuery && (
+              <div className="absolute right-0 top-full mt-1.5 w-60 bg-[#2b2d31] rounded-lg shadow-2xl border border-[#1f2023] p-2 z-50 text-[11px] text-[#dbdee1] space-y-1.5">
+                <span className="text-[10px] uppercase font-semibold text-[#949ba4] tracking-wider block px-1">
+                  Filtros de Busca
+                </span>
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onMouseDown={() => setSearchQuery('from:')}
+                    className="w-full text-left px-2 py-1 rounded hover:bg-[#35373c] flex items-center justify-between cursor-pointer"
+                  >
+                    <span><strong className="text-[#00a8fc]">from:</strong> autor</span>
+                    <span className="text-[10px] text-[#949ba4]">de um usuário</span>
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={() => setSearchQuery('has:link')}
+                    className="w-full text-left px-2 py-1 rounded hover:bg-[#35373c] flex items-center justify-between cursor-pointer"
+                  >
+                    <span><strong className="text-[#23a55a]">has:link</strong></span>
+                    <span className="text-[10px] text-[#949ba4]">com links</span>
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={() => setSearchQuery('has:image')}
+                    className="w-full text-left px-2 py-1 rounded hover:bg-[#35373c] flex items-center justify-between cursor-pointer"
+                  >
+                    <span><strong className="text-[#f0b232]">has:image</strong></span>
+                    <span className="text-[10px] text-[#949ba4]">com imagens</span>
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={() => setSearchQuery('is:pinned')}
+                    className="w-full text-left px-2 py-1 rounded hover:bg-[#35373c] flex items-center justify-between cursor-pointer"
+                  >
+                    <span><strong className="text-[#f23f43]">is:pinned</strong></span>
+                    <span className="text-[10px] text-[#949ba4]">mensagens fixadas</span>
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -162,6 +273,8 @@ function TextChannelView({ channelId, channelName }: { channelId: string; channe
         onRemoveReact={removeReaction}
         onReply={handleReply}
         onVisible={markRead}
+        onPin={pinMessage}
+        onUnpin={unpinMessage}
       />
 
       {/* Typing indicator */}
@@ -175,6 +288,8 @@ function TextChannelView({ channelId, channelName }: { channelId: string; channe
         onSend={handleSend}
         onTyping={sendTyping}
         onStopTyping={sendStopTyping}
+        members={members}
+        channels={channels}
       />
     </div>
   )

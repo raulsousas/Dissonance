@@ -93,10 +93,37 @@ export function VoiceChannelPanel({ channelId, serverId, channelName }: Props) {
         )}
 
         {inThisChannel ? (
-          <div className="w-full max-w-5xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {participants.map((p) => (
-              <ParticipantTile key={p.identity} participant={p} />
-            ))}
+          <div className="w-full h-full max-w-6xl flex flex-col justify-center gap-4">
+            {participants.some((p) => p.screenTrack) ? (
+              <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+                {/* Spotlight Screen Share */}
+                <div className="flex-1 rounded-xl overflow-hidden bg-black flex items-center justify-center relative min-h-[300px]">
+                  {participants.filter((p) => p.screenTrack).map((p) => (
+                    <ParticipantTile key={`spotlight-${p.identity}`} participant={p} />
+                  ))}
+                </div>
+                {/* Thumbnails Sidebar / Strip */}
+                <div className="lg:w-64 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto shrink-0 max-h-[500px]">
+                  {participants.map((p) => (
+                    <div key={p.identity} className="w-48 lg:w-full shrink-0 aspect-video">
+                      <ParticipantTile participant={p} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className={`w-full grid gap-4 ${
+                participants.length <= 1
+                  ? 'grid-cols-1 max-w-2xl mx-auto'
+                  : participants.length === 2
+                  ? 'grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto'
+                  : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+              }`}>
+                {participants.map((p) => (
+                  <ParticipantTile key={p.identity} participant={p} />
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center space-y-4 max-w-md w-full p-8 rounded-2xl bg-[#2b2d31] border border-[#1f2023] shadow-xl">

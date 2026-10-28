@@ -14,7 +14,7 @@ import {
   type FriendRequest,
 } from '@/hooks/useFriends'
 import { useCreateConversation } from '@/hooks/useConversations'
-import { usePresence } from '@/hooks/usePresence'
+import { usePresence, getStatusLabel, getStatusColor } from '@/hooks/usePresence'
 
 type Tab = 'online' | 'all' | 'pending' | 'add'
 
@@ -316,7 +316,7 @@ function FriendsListView({
                       className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2"
                       style={{
                         borderColor: 'var(--color-bg-tertiary)',
-                        background: online ? 'var(--color-online)' : 'var(--color-offline)',
+                        background: getStatusColor(status),
                       }}
                     />
                   </div>
@@ -326,7 +326,7 @@ function FriendsListView({
                       {friend.displayName}
                     </p>
                     <p className="text-xs text-[#949ba4]">
-                      {online ? (status !== 'offline' ? status : 'Disponível') : 'Offline'}
+                      {getStatusLabel(status)}
                     </p>
                   </div>
                 </div>

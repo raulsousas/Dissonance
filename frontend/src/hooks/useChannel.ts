@@ -96,6 +96,7 @@ export function useChannel(channelId: string | undefined) {
       .receive('ok', (resp: { last_read_message_id: string | null }) => {
         console.info(`[Guilda:Channel] Joined channel:${channelId} successfully, lastRead:`, resp.last_read_message_id)
         useMessagingStore.getState().setLastRead(channelId, resp.last_read_message_id)
+        useMessagingStore.getState().clearUnread(channelId)
         loadHistory(channelId)
       })
       .receive('error', (err: unknown) => {
@@ -107,6 +108,7 @@ export function useChannel(channelId: string | undefined) {
     channel.on('new_message', (msg: Message) => {
       console.info(`[Guilda:Channel] Incoming new_message in channel:${channelId}:`, msg)
       useMessagingStore.getState().appendMessage(channelId, msg)
+      useMessagingStore.getState().clearUnread(channelId)
     })
 
     channel.on('message_edited', (payload: { id: string; content: string; editedAt: string }) => {
@@ -120,6 +122,18 @@ export function useChannel(channelId: string | undefined) {
       useMessagingStore.getState().updateMessage(channelId, payload.id, {
         deleted: true,
         content: '[deleted]',
+      })
+    })
+
+    channel.on('message_pinned', (payload: { id: string; pinned: boolean }) => {
+      useMessagingStore.getState().updateMessage(channelId, payload.id, {
+        pinned: payload.pinned ?? true,
+      })
+    })
+
+    channel.on('message_unpinned', (payload: { id: string; pinned: boolean }) => {
+      useMessagingStore.getState().updateMessage(channelId, payload.id, {
+        pinned: payload.pinned ?? false,
       })
     })
 
@@ -374,6 +388,20 @@ export function useChannel(channelId: string | undefined) {
     []
   )
 
+  const pinMessage = useCallback(
+    (messageId: string) => {
+      channelRef.current?.push('pin_message', { message_id: messageId })
+    },
+    []
+  )
+
+  const unpinMessage = useCallback(
+    (messageId: string) => {
+      channelRef.current?.push('unpin_message', { message_id: messageId })
+    },
+    []
+  )
+
   const sendTyping = useCallback(() => {
     if (!channelRef.current) return
     channelRef.current.push('typing_start', {})
@@ -427,6 +455,8 @@ export function useChannel(channelId: string | undefined) {
     deleteMessage,
     addReaction,
     removeReaction,
+    pinMessage,
+    unpinMessage,
     sendTyping,
     sendStopTyping,
     loadMore,

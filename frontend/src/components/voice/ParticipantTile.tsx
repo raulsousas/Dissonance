@@ -32,10 +32,13 @@ export function ParticipantTile({ participant }: { participant: VoiceParticipant
 
   return (
     <div
-      className="relative flex flex-col items-center justify-center rounded-xl overflow-hidden aspect-video transition-all shadow-md group select-none"
+      className={`relative flex flex-col items-center justify-center rounded-xl overflow-hidden aspect-video transition-all shadow-md group select-none ${
+        participant.isSpeaking
+          ? 'border-2 border-[#23a55a] shadow-[0_0_16px_rgba(35,165,90,0.45)] ring-1 ring-[#23a55a]'
+          : 'border-2 border-transparent'
+      }`}
       style={{
         background: 'var(--color-bg-secondary)',
-        border: participant.isSpeaking ? '2px solid var(--color-online)' : '2px solid transparent',
       }}
     >
       {activeVideoTrack ? (
@@ -48,10 +51,9 @@ export function ParticipantTile({ participant }: { participant: VoiceParticipant
       ) : (
         <div className="flex flex-col items-center gap-3">
           <Avatar.Root
-            className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center bg-gray-600 transition-all shadow-inner"
-            style={{
-              boxShadow: participant.isSpeaking ? '0 0 0 4px var(--color-online)' : 'none',
-            }}
+            className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center bg-gray-600 transition-all shadow-inner ${
+              participant.isSpeaking ? 'ring-4 ring-[#23a55a] shadow-[0_0_12px_rgba(35,165,90,0.6)]' : ''
+            }`}
           >
             <Avatar.Fallback className="text-2xl font-bold text-white bg-[#5865f2]">
               {participant.name[0]?.toUpperCase() ?? '?'}

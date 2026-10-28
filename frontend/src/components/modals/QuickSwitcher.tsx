@@ -198,7 +198,7 @@ export function QuickSwitcher() {
                 <span>Navegar <kbd className="px-1 py-0.5 bg-[#2b2d31] rounded">↑</kbd> <kbd className="px-1 py-0.5 bg-[#2b2d31] rounded">↓</kbd></span>
                 <span>Selecionar <kbd className="px-1 py-0.5 bg-[#2b2d31] rounded">↵</kbd></span>
               </div>
-              <span>Guilda Quick Switcher</span>
+              <span>Dissonance Quick Switcher</span>
             </div>
           </Dialog.Content>
         </Dialog.Overlay>
