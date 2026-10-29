@@ -3,7 +3,7 @@
  * infinite scroll upward for history, and date separators.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { Message } from '@/stores/messagingStore'
 import { MessageItem } from './MessageItem'
 import { Hash, Loader2, ChevronDown } from 'lucide-react'
@@ -22,6 +22,8 @@ interface Props {
   onVisible: (messageId: string) => void
   onPin?: (id: string) => void
   onUnpin?: (id: string) => void
+  /** Whether messages belong to a server channel (default) or a DM conversation. */
+  scope?: 'channel' | 'dm'
 }
 
 function isSameDay(a: string, b: string) {
@@ -35,17 +37,17 @@ function DateSeparator({ iso }: { iso: string }) {
   yesterday.setDate(today.getDate() - 1)
 
   let label: string
-  if (d.toDateString() === today.toDateString()) label = 'Today'
-  else if (d.toDateString() === yesterday.toDateString()) label = 'Yesterday'
-  else label = d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+  if (d.toDateString() === today.toDateString()) label = 'Hoje'
+  else if (d.toDateString() === yesterday.toDateString()) label = 'Ontem'
+  else label = d.toLocaleDateString('pt-BR', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
-    <div className="flex items-center gap-3 px-4 my-3">
-      <div className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
-      <span className="text-xs font-medium shrink-0" style={{ color: 'var(--color-text-muted)' }}>
+    <div className="flex items-center gap-3 px-4 my-4">
+      <div className="flex-1 h-px bg-[#3C3F48]/40" />
+      <span className="text-[11px] font-semibold tracking-wide uppercase px-3 py-0.5 rounded-full bg-[#2B2D33] border border-[#3C3F48] text-[#858B98] shadow-xs">
         {label}
       </span>
-      <div className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
+      <div className="flex-1 h-px bg-[#3C3F48]/40" />
     </div>
   )
 }
@@ -64,12 +66,34 @@ export function MessageList({
   onVisible,
   onPin,
   onUnpin,
+  scope = 'channel',
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const topRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const prevScrollHeight = useRef<number>(0)
   const [showScrollBottomButton, setShowScrollBottomButton] = useState(false)
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
+  const highlightTimeoutRef = useRef<any>(null)
+
+  // Fast map to lookup messages by ID for replies
+  const messagesMap = useMemo(() => {
+    const map = new Map<string, Message>()
+    messages.forEach((m) => map.set(m.id, m))
+    return map
+  }, [messages])
+
+  const handleScrollToMessage = useCallback((id: string) => {
+    const el = document.getElementById(`message-${id}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current)
+      setHighlightedMessageId(id)
+      highlightTimeoutRef.current = setTimeout(() => {
+        setHighlightedMessageId(null)
+      }, 2000)
+    }
+  }, [])
 
   // Scroll to bottom tracking
   const isAtBottom = useRef(true)
@@ -215,11 +239,16 @@ export function MessageList({
         {messages.map((msg, i) => {
           const prev = messages[i - 1]
           const showDateSep = !prev || !isSameDay(prev.insertedAt, msg.insertedAt)
+          const repliedMsg = msg.replyToId ? messagesMap.get(msg.replyToId) : null
+
           return (
             <div key={msg.id}>
               {showDateSep && <DateSeparator iso={msg.insertedAt} />}
               <MessageItem
                 message={msg}
+                repliedMessage={repliedMsg}
+                isHighlighted={msg.id === highlightedMessageId}
+                onScrollToMessage={handleScrollToMessage}
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onReact={onReact}
@@ -227,6 +256,7 @@ export function MessageList({
                 onReply={onReply}
                 onPin={onPin}
                 onUnpin={onUnpin}
+                scope={scope}
               />
             </div>
           )

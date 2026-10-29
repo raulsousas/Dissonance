@@ -32,6 +32,19 @@ defmodule Guilda.VoiceTest do
       assert res.canSpeak == true
     end
 
+    test "token lets the client publish its mute/deafen state via metadata" do
+      owner = insert_user()
+      {:ok, server} = Servers.create_server(owner, %{name: "Voice Server"})
+      {:ok, channel} = Channels.create_channel(server, %{name: "Lounge", type: "voice"})
+
+      {:ok, res} = Voice.issue_token(channel.id, owner)
+      [_header, payload, _sig] = String.split(res.token, ".")
+      claims = payload |> Base.url_decode64!(padding: false) |> Jason.decode!()
+
+      assert claims["video"]["canUpdateOwnMetadata"] == true
+      assert claims["video"]["room"] == channel.id
+    end
+
     test "returns error for text channel" do
       owner = insert_user()
       {:ok, server} = Servers.create_server(owner, %{name: "Text Server"})

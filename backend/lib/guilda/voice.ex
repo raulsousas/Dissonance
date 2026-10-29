@@ -99,7 +99,9 @@ defmodule Guilda.Voice do
         "roomJoin" => true,
         "canPublish" => can_speak,
         "canSubscribe" => true,
-        "canPublishData" => true
+        "canPublishData" => true,
+        # The client broadcasts its mute/deafen state through participant metadata.
+        "canUpdateOwnMetadata" => true
       }
     }
 

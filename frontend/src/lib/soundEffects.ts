@@ -138,3 +138,29 @@ export function playMessageNotificationSound() {
     osc.stop(now + 0.25)
   })
 }
+
+/**
+ * Very soft, short "tap" used when a friend gets your attention.
+ * Intentionally quieter and shorter than the message notification sound.
+ */
+export function playNudgeSound() {
+  withAudioContext((ctx) => {
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(523.25, now) // C5
+    osc.frequency.setValueAtTime(659.25, now + 0.09) // E5
+
+    gain.gain.setValueAtTime(0.001, now)
+    gain.gain.linearRampToValueAtTime(0.06, now + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22)
+
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+
+    osc.start(now)
+    osc.stop(now + 0.22)
+  })
+}

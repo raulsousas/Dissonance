@@ -110,6 +110,7 @@ defmodule GuildaWeb.ServerController do
   def join(conn, %{"code" => code}) do
     case Servers.consume_invite(code, conn.assigns.current_user) do
       {:ok, {server, _member}} ->
+        post_welcome_message(server, conn.assigns.current_user)
         conn |> put_status(:ok) |> json(%{data: serialize_server(server)})
 
       {:error, :not_found} ->
@@ -128,6 +129,24 @@ defmodule GuildaWeb.ServerController do
 
   def join(conn, _params) do
     conn |> put_status(:bad_request) |> json(%{error: "code is required"})
+  end
+
+  # Greets a new member in the server's first text channel. Best effort: a
+  # failure here must never make the join itself fail. Only the channel topic is
+  # notified (no per-member "new message" sound for every join).
+  defp post_welcome_message(server, user) do
+    case Guilda.Messaging.create_welcome_message(server, user) do
+      {:ok, message} ->
+        GuildaWeb.Endpoint.broadcast(
+          "channel:#{message.channel_id}",
+          "new_message",
+          GuildaWeb.MessagesController.serialize_message(message)
+        )
+
+      {:error, reason} ->
+        require Logger
+        Logger.warning("[ServerController] Welcome message not posted reason=#{inspect(reason)}")
+    end
   end
 
   # DELETE /api/servers/:server_id/members/me

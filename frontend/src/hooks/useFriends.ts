@@ -6,6 +6,7 @@ export interface FriendUser {
   displayName: string
   avatarUrl: string | null
   status: string | null
+  allowNudges?: boolean
   friendshipId: string
   since: string
 }
@@ -34,7 +35,10 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, { credentials: 'include', ...init })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw Object.assign(new Error(body.error ?? `HTTP ${res.status}`), { status: res.status })
+    throw Object.assign(new Error(body.error ?? `HTTP ${res.status}`), {
+      status: res.status,
+      retryAfter: body.retryAfter as number | undefined,
+    })
   }
   if (res.status === 204) return undefined as T
   return res.json()
@@ -103,6 +107,13 @@ export function useDeclineFriendRequest() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['friend-requests'] })
     },
+  })
+}
+
+export function useNudgeFriend() {
+  return useMutation({
+    mutationFn: (friendId: string) =>
+      apiFetch<void>(`/api/friends/${friendId}/nudge`, { method: 'POST' }),
   })
 }
 

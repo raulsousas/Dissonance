@@ -15,5 +15,8 @@ config :guilda, Guilda.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10
 
+# The reminder worker would touch the DB outside the SQL sandbox.
+config :guilda, Guilda.Reminders.Worker, interval_ms: :manual
+
 config :logger, level: :warning
 config :phoenix, :plug_init_mode, :runtime

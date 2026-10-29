@@ -31,6 +31,7 @@ defmodule Guilda.Friendships do
             displayName: u.display_name,
             avatarUrl: u.avatar_url,
             status: u.status,
+            allowNudges: u.allow_nudges,
             friendshipId: f.id,
             since: f.updated_at
           }
@@ -49,6 +50,7 @@ defmodule Guilda.Friendships do
             displayName: u.display_name,
             avatarUrl: u.avatar_url,
             status: u.status,
+            allowNudges: u.allow_nudges,
             friendshipId: f.id,
             since: f.updated_at
           }

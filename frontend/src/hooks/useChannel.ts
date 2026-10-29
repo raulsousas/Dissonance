@@ -11,6 +11,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import type { Channel } from 'phoenix'
 import { getSocket } from '@/lib/socket'
 import { useMessagingStore, type Message, type Attachment, type TypingUser } from '@/stores/messagingStore'
+import { usePollStore, type Poll } from '@/stores/pollStore'
 import { useAuth, type CurrentUser } from '@/hooks/useAuth'
 
 const HISTORY_LIMIT = 50
@@ -123,6 +124,14 @@ export function useChannel(channelId: string | undefined) {
         deleted: true,
         content: '[deleted]',
       })
+    })
+
+    channel.on('poll_updated', (poll: Poll) => {
+      usePollStore.getState().upsertPoll(poll)
+    })
+
+    channel.on('poll_deleted', (payload: { id: string }) => {
+      usePollStore.getState().removePoll(payload.id)
     })
 
     channel.on('message_pinned', (payload: { id: string; pinned: boolean }) => {

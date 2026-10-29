@@ -12,6 +12,7 @@ defmodule Guilda.Accounts.User do
     field :avatar_url, :string
     field :status, :string, default: "offline"
     field :role, :string, default: "member"
+    field :allow_nudges, :boolean, default: true
 
     has_many :sessions, Guilda.Accounts.Session
     has_many :server_members, Guilda.Servers.ServerMember
@@ -36,7 +37,7 @@ defmodule Guilda.Accounts.User do
 
   def update_changeset(user, attrs) do
     user
-    |> cast(attrs, [:display_name, :avatar_url, :status])
+    |> cast(attrs, [:display_name, :avatar_url, :status, :allow_nudges])
     |> validate_length(:display_name, min: 1, max: 100)
     |> validate_inclusion(:status, ~w(online away dnd invisible offline))
   end

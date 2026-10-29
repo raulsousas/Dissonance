@@ -19,6 +19,7 @@ defmodule GuildaWeb.AccountController do
         avatarUrl: user.avatar_url,
         status: user.status,
         role: user.role,
+        allowNudges: user.allow_nudges,
         token: token
       }
     })
@@ -35,6 +36,7 @@ defmodule GuildaWeb.AccountController do
     attrs = if Map.has_key?(params, "avatarUrl"), do: Map.put(attrs, :avatar_url, params["avatarUrl"]), else: attrs
     attrs = if Map.has_key?(params, "avatar_url"), do: Map.put(attrs, :avatar_url, params["avatar_url"]), else: attrs
     attrs = if Map.has_key?(params, "status"), do: Map.put(attrs, :status, params["status"]), else: attrs
+    attrs = if is_boolean(params["allowNudges"]), do: Map.put(attrs, :allow_nudges, params["allowNudges"]), else: attrs
 
     case Accounts.update_user(user, attrs) do
       {:ok, updated} ->
@@ -46,6 +48,7 @@ defmodule GuildaWeb.AccountController do
             avatarUrl: updated.avatar_url,
             status: updated.status,
             role: updated.role,
+            allowNudges: updated.allow_nudges,
             token: token
           }
         })

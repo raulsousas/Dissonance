@@ -122,6 +122,49 @@ defmodule GuildaWeb.FriendsController do
     end
   end
 
+  # Minimum seconds between nudges from the same sender to the same friend.
+  @nudge_cooldown_seconds 300
+
+  # POST /api/friends/:id/nudge  (:id is the friend's user id)
+  def nudge(conn, %{"id" => target_id}) do
+    user = conn.assigns.current_user
+    target = Guilda.Accounts.get_user(target_id)
+
+    cond do
+      is_nil(target) or target.id == user.id or not Friendships.friends?(user.id, target.id) ->
+        conn |> put_status(:forbidden) |> json(%{error: "Only friends can be nudged"})
+
+      not target.allow_nudges ->
+        conn |> put_status(:forbidden) |> json(%{error: "nudges_disabled"})
+
+      true ->
+        key = "nudge:#{user.id}:#{target.id}"
+
+        case Redix.command(:redix, ["SET", key, "1", "NX", "EX", Integer.to_string(@nudge_cooldown_seconds)]) do
+          {:ok, nil} ->
+            retry_after =
+              case Redix.command(:redix, ["TTL", key]) do
+                {:ok, ttl} when is_integer(ttl) and ttl > 0 -> ttl
+                _ -> @nudge_cooldown_seconds
+              end
+
+            conn |> put_status(:too_many_requests) |> json(%{error: "cooldown", retryAfter: retry_after})
+
+          _ ->
+            # "Do not disturb" users are never interrupted, but the sender is not told.
+            unless target.status == "dnd" do
+              GuildaWeb.Endpoint.broadcast("user:#{target.id}", "nudge_received", %{
+                fromId: user.id,
+                fromName: user.display_name,
+                fromAvatar: user.avatar_url
+              })
+            end
+
+            send_resp(conn, :no_content, "")
+        end
+    end
+  end
+
   # DELETE /api/friends/:id
   def delete(conn, %{"id" => id}) do
     user = conn.assigns.current_user

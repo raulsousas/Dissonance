@@ -1,72 +1,84 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Guilda Design Tokens
-   Discord-inspired dark-first palette
+   Maiahi Design System Tokens
+   Dark-first Discord-inspired refined UI palette
    ============================================================ */
 @layer base {
   :root {
     /* Backgrounds */
-    --color-bg-primary:    #1e1f22;   /* deepest rail background */
-    --color-bg-secondary:  #2b2d31;   /* sidebar panels */
-    --color-bg-tertiary:   #313338;   /* main chat / friends area */
-    --color-bg-surface:    #383a40;   /* cards, inputs, modals */
-    --color-bg-elevated:   #35373c;   /* hover states, dropdowns */
-    --color-bg-card:       #1e1f22;   /* active now cards */
+    --color-bg-primary:    #1B1C20;   /* Main background & base workspace */
+    --color-bg-sidebar:    #202127;   /* Channel, DM, server sidebar */
+    --color-bg-secondary:  #202127;   /* Secondary panels */
+    --color-bg-tertiary:   #1B1C20;   /* Main chat / view area */
+    --color-bg-surface:    #2B2D33;   /* Cards, container inputs, modals */
+    --color-bg-elevated:   #34363E;   /* Elevated dropdowns, popovers, input boxes */
+    --color-bg-hover:      #3B3E47;   /* Hover states on items */
+    --color-bg-card:       #202127;   /* Card backgrounds */
 
     /* Text */
-    --color-text-primary:  #f2f3f5;
-    --color-text-secondary:#dbdee1;
-    --color-text-muted:    #949ba4;
-    --color-text-link:     #00a8fc;
+    --color-text-primary:  #F2F3F5;   /* Headings, active channel, message text */
+    --color-text-secondary:#B5BAC3;   /* Subtitles, secondary text, timestamps */
+    --color-text-muted:    #858B98;   /* Placeholders, category titles, muted icons */
+    --color-text-link:     #28A9F5;   /* Links & clickable mentions */
 
-    /* Accent */
-    --color-accent:        #5865f2;   /* Discord Blurple */
-    --color-accent-hover:  #4752c4;
-    --color-accent-text:   #ffffff;
+    /* Brand Accent */
+    --color-brand:         #7667F5;   /* Maiahi purple brand */
+    --color-brand-hover:   #6554E6;   /* Brand hover */
+    --color-accent:        #7667F5;   /* Accent */
+    --color-accent-hover:  #6554E6;
+    --color-accent-text:   #FFFFFF;
+    --color-accent-link:   #28A9F5;
 
-    /* Status */
-    --color-online:        #23a55a;
-    --color-idle:          #f0b232;
-    --color-dnd:           #f23f43;
-    --color-offline:       #80848e;
+    /* Status Indicators */
+    --color-online:        #35C98A;   /* Green online */
+    --color-idle:          #F4B942;   /* Yellow idle / away */
+    --color-dnd:           #F04747;   /* Red DND / busy */
+    --color-offline:       #858B98;   /* Gray offline */
 
-    /* Destructive */
-    --color-danger:        #f23f43;
-    --color-danger-hover:  #da373c;
+    /* Destructive & Notifications */
+    --color-danger:        #F04747;   /* Red alerts, disconnect, delete */
+    --color-danger-hover:  #D93838;
+    --color-warning:       #F4B942;
+    --color-success:       #35C98A;
 
-    /* Borders */
-    --color-border:        #1f2023;
-    --color-border-subtle: #232428;
+    /* Borders & Dividers */
+    --color-border:        #3C3F48;   /* Main border color */
+    --color-border-subtle: #2B2D33;
 
     /* Scrollbar */
-    --scrollbar-thumb:     #1a1b1e;
+    --scrollbar-thumb:     #2B2D33;
     --scrollbar-track:     transparent;
   }
 
   /* Light theme overrides */
   [data-theme="light"] {
-    --color-bg-primary:    #f2f3f5;
-    --color-bg-secondary:  #e3e5e8;
-    --color-bg-tertiary:   #ffffff;
-    --color-bg-surface:    #ebedef;
-    --color-bg-elevated:   #ffffff;
-    --color-text-primary:  #2e3338;
-    --color-text-secondary:#4f5660;
-    --color-text-muted:    #747f8d;
-    --color-border:        #d4d7dc;
+    --color-bg-primary:    #F2F3F5;
+    --color-bg-sidebar:    #E3E5E8;
+    --color-bg-secondary:  #E3E5E8;
+    --color-bg-tertiary:   #FFFFFF;
+    --color-bg-surface:    #EBEDEF;
+    --color-bg-elevated:   #FFFFFF;
+    --color-bg-hover:      #E0E2E5;
+    --color-text-primary:  #2E3338;
+    --color-text-secondary:#4F5660;
+    --color-text-muted:    #747F8D;
+    --color-border:        #D4D7DC;
+    --color-border-subtle: #E3E5E8;
   }
 
   /* AMOLED (Midnight pitch black) theme overrides */
   [data-theme="amoled"] {
     --color-bg-primary:    #000000;
-    --color-bg-secondary:  #0a0a0c;
-    --color-bg-tertiary:   #111214;
-    --color-bg-surface:    #18191c;
-    --color-bg-elevated:   #1e1f22;
-    --color-bg-card:       #000000;
-    --color-border:        #232428;
-    --color-border-subtle: #1a1b1e;
+    --color-bg-sidebar:    #0A0A0C;
+    --color-bg-secondary:  #0A0A0C;
+    --color-bg-tertiary:   #000000;
+    --color-bg-surface:    #16171A;
+    --color-bg-elevated:   #202127;
+    --color-bg-hover:      #2B2D33;
+    --color-bg-card:       #0A0A0C;
+    --color-border:        #2B2D33;
+    --color-border-subtle: #16171A;
   }
 }
 
@@ -82,16 +94,17 @@
   }
 
   body {
-    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
-    font-size: 15px;
-    line-height: 1.6;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
     background-color: var(--color-bg-primary);
     color: var(--color-text-primary);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Custom scrollbar */
-  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-thumb {
     background-color: var(--scrollbar-thumb);
     border-radius: 4px;

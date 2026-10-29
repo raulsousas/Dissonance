@@ -19,14 +19,21 @@ export default function DmSidebar() {
   const pendingCount = (pendingRequests?.incoming.length ?? 0)
 
   return (
-    <div className="flex flex-col h-full select-none bg-[#1e1f22] text-[#dbdee1]">
-      {/* Top search bar button */}
-      <div className="h-13 px-3 flex items-center border-b border-[#1f2023]/40 shrink-0">
+    <div className="flex flex-col h-full select-none bg-[#202127] text-[#B5BAC3]">
+      {/* Top search bar and new DM button */}
+      <div className="h-14 px-3 flex items-center justify-between gap-2 border-b border-[#3C3F48]/40 shrink-0">
         <button
           onClick={() => setNewDmOpen(true)}
-          className="w-full h-8 px-3 rounded-lg text-xs text-left transition-colors flex items-center justify-start cursor-pointer bg-[#111214] text-[#949ba4] hover:text-[#dbdee1]"
+          className="flex-1 min-w-0 h-9 px-3 rounded-lg text-xs text-left transition-all flex items-center gap-2 cursor-pointer bg-[#1B1C20] border border-[#3C3F48]/40 text-[#858B98] hover:text-[#F2F3F5] hover:border-[#7667F5]"
         >
-          <span className="truncate text-xs font-medium">Encontre ou comece uma conversa</span>
+          <span className="truncate text-xs font-medium">Encontre ou inicie uma conversa</span>
+        </button>
+        <button
+          onClick={() => setNewDmOpen(true)}
+          title="Nova Mensagem Direta"
+          className="w-9 h-9 rounded-lg bg-[#2B2D33] hover:bg-[#34363E] text-[#B5BAC3] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-[#3C3F48]/40 shrink-0"
+        >
+          <Plus size={18} />
         </button>
       </div>
 
@@ -36,15 +43,15 @@ export default function DmSidebar() {
           onClick={() => navigate('/app/dm')}
           className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
             !conversationId
-              ? 'bg-[#35373c] text-white font-semibold'
-              : 'text-[#949ba4] hover:bg-[#35373c]/50 hover:text-[#dbdee1]'
+              ? 'bg-[#34363E] text-white font-semibold'
+              : 'text-[#858B98] hover:bg-[#3B3E47]/50 hover:text-[#F2F3F5]'
           }`}
         >
           <Users size={18} className="shrink-0" />
           <span className="flex-1 text-left text-sm font-medium">Amigos</span>
           {pendingCount > 0 && (
             <span
-              className="px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none bg-[#f23f43] text-white"
+              className="px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none bg-[#F04747] text-white"
             >
               {pendingCount}
             </span>
@@ -52,7 +59,7 @@ export default function DmSidebar() {
         </button>
 
         {/* Section Header */}
-        <div className="flex items-center justify-between pt-4 pb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-[#949ba4] hover:text-[#dbdee1]">
+        <div className="flex items-center justify-between pt-4 pb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-[#858B98] hover:text-[#F2F3F5]">
           <span>Mensagens diretas</span>
           <button
             onClick={() => setNewDmOpen(true)}
@@ -66,7 +73,7 @@ export default function DmSidebar() {
 
         {/* Conversation list */}
         {conversations.length === 0 ? (
-          <div className="px-3 py-6 text-xs text-center text-[#949ba4]">
+          <div className="px-3 py-6 text-xs text-center text-[#858B98]">
             Nenhuma conversa ainda. Clique em + para iniciar uma nova conversa.
           </div>
         ) : (
@@ -110,43 +117,42 @@ function ConversationItem({
   return (
     <button
       onClick={onClick}
-      className={`group flex items-center justify-between gap-3 w-full px-2.5 py-2 rounded text-sm transition-colors text-left cursor-pointer ${
+      className={`group flex items-center justify-between gap-3 w-full px-2.5 py-2 rounded-xl text-sm transition-all text-left cursor-pointer ${
         active
-          ? 'bg-[#3f4248] text-white font-semibold'
+          ? 'bg-[#34363E] text-white font-semibold shadow-xs'
           : unread > 0
-          ? 'text-[#f2f3f5] font-semibold hover:bg-[#35373c]'
-          : 'text-[#949ba4] hover:bg-[#35373c] hover:text-[#dbdee1]'
+          ? 'text-[#F2F3F5] font-semibold hover:bg-[#3B3E47]'
+          : 'text-[#858B98] hover:bg-[#3B3E47]/50 hover:text-[#F2F3F5]'
       }`}
     >
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <div className="relative shrink-0">
-          <Avatar.Root className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-gray-600">
+          <Avatar.Root className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-[#2B2D33]">
             <Avatar.Image src={recipient.avatarUrl ?? undefined} alt={recipient.displayName} className="w-full h-full object-cover" />
-            <Avatar.Fallback className="text-xs font-bold text-white">
+            <Avatar.Fallback className="w-full h-full flex items-center justify-center text-xs font-bold text-white bg-[#7667F5]">
               {recipient.displayName[0]?.toUpperCase() ?? '?'}
             </Avatar.Fallback>
           </Avatar.Root>
           <span
-            className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
+            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#202127]"
             style={{
-              borderColor: 'var(--color-bg-secondary)',
               background: statusColor,
             }}
           />
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className={`text-sm truncate ${active || unread > 0 ? 'text-white font-semibold' : 'text-[#dbdee1]'}`}>
+          <p className={`text-sm truncate font-medium ${active || unread > 0 ? 'text-[#F2F3F5] font-bold' : 'text-[#B5BAC3] group-hover:text-[#F2F3F5]'}`}>
             {recipient.displayName}
           </p>
-          <p className="text-xs truncate text-[#949ba4]">
+          <p className="text-xs truncate text-[#858B98]">
             {lastMessage?.content || statusLabel}
           </p>
         </div>
       </div>
 
       {unread > 0 && !active && (
-        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f23f43] text-white shrink-0 shadow animate-in fade-in zoom-in duration-150">
+        <span className="min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-[#F04747] text-white shrink-0 flex items-center justify-center shadow animate-in fade-in zoom-in duration-150">
           {unread > 99 ? '99+' : unread}
         </span>
       )}
@@ -220,9 +226,9 @@ function NewDmModal({ open, onClose }: { open: boolean; onClose: () => void }) {
                     style={{ background: 'var(--color-bg-secondary)' }}
                   >
                     <div className="relative shrink-0">
-                      <Avatar.Root className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-gray-600">
+                      <Avatar.Root className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-[#2B2D33]">
                         <Avatar.Image src={friend.avatarUrl ?? undefined} alt={friend.displayName} className="w-full h-full object-cover" />
-                        <Avatar.Fallback className="text-xs font-bold text-white">
+                        <Avatar.Fallback className="w-full h-full flex items-center justify-center text-xs font-bold text-white bg-[#7667F5]">
                           {friend.displayName[0]?.toUpperCase()}
                         </Avatar.Fallback>
                       </Avatar.Root>

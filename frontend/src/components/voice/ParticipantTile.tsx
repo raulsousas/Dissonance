@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import * as Avatar from '@radix-ui/react-avatar'
 import * as Popover from '@radix-ui/react-popover'
 import { MicOff, Headphones, Volume2, Sliders } from 'lucide-react'
-import type { VoiceParticipant } from '@/stores/voiceStore'
+import { getActiveVideoTrack, type VoiceParticipant } from '@/stores/voiceStore'
 
 export function ParticipantTile({
   participant,
@@ -23,7 +23,7 @@ export function ParticipantTile({
   const nameToDisplay = displayName || participant.name || 'Usuário'
 
   const isSpeaking = participant.isSpeaking && !participant.isMuted && !participant.isDeafened
-  const activeVideoTrack = participant.screenTrack || participant.videoTrack
+  const activeVideoTrack = getActiveVideoTrack(participant)
 
   useEffect(() => {
     const el = videoRef.current

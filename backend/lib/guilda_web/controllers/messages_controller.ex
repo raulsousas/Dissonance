@@ -34,7 +34,8 @@ defmodule GuildaWeb.MessagesController do
     end
   end
 
-  defp serialize_message(msg) do
+  @doc false
+  def serialize_message(msg) do
     reactions =
       (msg.reactions || [])
       |> Enum.group_by(& &1.emoji)
@@ -67,6 +68,7 @@ defmodule GuildaWeb.MessagesController do
       editedAt: msg.edited_at,
       deleted: msg.deleted,
       pinned: msg.pinned || false,
+      kind: msg.kind || "user",
       reactions: reactions,
       attachments: attachments,
       insertedAt: msg.inserted_at
@@ -110,6 +112,9 @@ defmodule GuildaWeb.MessagesController do
       {:error, :forbidden} ->
         conn |> put_status(403) |> json(%{error: "not a member"})
 
+      {:ok, %{type: "polls"}, _membership} ->
+        conn |> put_status(422) |> json(%{error: "channel does not accept messages"})
+
       {:ok, channel, membership} ->
         user = conn.assigns.current_user
 
@@ -136,12 +141,14 @@ defmodule GuildaWeb.MessagesController do
               server_id = server.id
               author_id = user.id
 
+              # Users in focus mode (channel silenced) are not notified.
               member_user_ids =
                 Guilda.Repo.all(
                   from sm in Guilda.Servers.ServerMember,
                     where: sm.server_id == ^server_id and sm.user_id != ^author_id,
                     select: sm.user_id
                 )
+                |> Guilda.FocusMode.reject_muted(channel_id)
 
               Enum.each(member_user_ids, fn member_id ->
                 GuildaWeb.Endpoint.broadcast("user:#{member_id}", "new_server_message", %{

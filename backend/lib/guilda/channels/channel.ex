@@ -5,7 +5,8 @@ defmodule Guilda.Channels.Channel do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @valid_types ~w(text voice)
+  # "polls" is a channel that lists the server's polls instead of chat messages.
+  @valid_types ~w(text voice polls)
 
   schema "channels" do
     field :name, :string

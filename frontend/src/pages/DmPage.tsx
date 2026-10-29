@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import * as Avatar from '@radix-ui/react-avatar'
 import * as Popover from '@radix-ui/react-popover'
-import { Pin, Search, X, Menu } from 'lucide-react'
+import { Pin, Search, X, Menu, Phone, Video } from 'lucide-react'
 import FriendsPage from '@/pages/FriendsPage'
 import { useUIStore } from '@/stores/uiStore'
 import { useConversation } from '@/hooks/useConversations'
@@ -12,6 +12,9 @@ import { MessageList } from '@/components/messaging/MessageList'
 import { MessageInput } from '@/components/messaging/MessageInput'
 import { TypingIndicator } from '@/components/messaging/TypingIndicator'
 import type { Message, Attachment } from '@/stores/messagingStore'
+import { usePollStore } from '@/stores/pollStore'
+import { CreatePollModal } from '@/components/modals/CreatePollModal'
+import { PollDetailsModal } from '@/components/modals/PollDetailsModal'
 
 export default function DmPage() {
   const { conversationId } = useParams<{ conversationId?: string }>()
@@ -28,6 +31,7 @@ function DmChatView({ conversationId }: { conversationId: string }) {
   const { isUserOnline, getUserStatus } = usePresence()
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const { isCreatePollOpen, closeCreatePoll, activePollModalId, closePollDetails } = usePollStore()
 
   const recipient = conversation?.recipient
   const recipientName = recipient?.displayName ?? 'Friend'
@@ -74,59 +78,70 @@ function DmChatView({ conversationId }: { conversationId: string }) {
     : messages
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--color-bg-tertiary)' }}>
+    <div className="flex flex-col h-full overflow-hidden bg-[#1B1C20]">
       {/* DM Chat Header */}
       <header
-        className="h-12 px-3 sm:px-4 flex items-center justify-between border-b shrink-0 select-none shadow-sm"
-        style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-secondary)' }}
+        className="h-12 px-3 sm:px-4 flex items-center justify-between border-b border-[#3C3F48]/40 shrink-0 select-none shadow-sm bg-[#202127]"
       >
         <div className="flex items-center gap-2.5">
           <button
             onClick={useUIStore.getState().openMobileNav}
-            className="p-1 -ml-1 text-[#949ba4] hover:text-[#f2f3f5] md:hidden cursor-pointer shrink-0"
+            className="p-1 -ml-1 text-[#858B98] hover:text-[#F2F3F5] md:hidden cursor-pointer shrink-0"
             title="Abrir menu"
           >
             <Menu size={20} />
           </button>
           <div className="relative shrink-0">
-            <Avatar.Root className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-gray-600">
+            <Avatar.Root className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-[#2B2D33]">
               <Avatar.Image src={recipient?.avatarUrl ?? undefined} alt={recipientName} className="w-full h-full object-cover" />
-              <Avatar.Fallback className="text-xs font-bold text-white">
+              <Avatar.Fallback className="w-full h-full flex items-center justify-center text-xs font-bold text-white bg-[#7667F5]">
                 {recipientName[0]?.toUpperCase() ?? '?'}
               </Avatar.Fallback>
             </Avatar.Root>
             <span
-              className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2"
+              className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#202127]"
               style={{
-                borderColor: 'var(--color-bg-secondary)',
-                background: isOnline ? 'var(--color-online)' : 'var(--color-text-muted)',
+                background: isOnline ? '#35C98A' : '#858B98',
               }}
             />
           </div>
 
           <div className="flex flex-col">
-            <span className="font-semibold text-sm leading-tight" style={{ color: 'var(--color-text-primary)' }}>
+            <span className="font-bold text-sm leading-tight text-[#F2F3F5]">
               {recipientName}
             </span>
-            <span className="text-[11px] capitalize" style={{ color: 'var(--color-text-muted)' }}>
-              {isOnline ? (status !== 'offline' ? status : 'Online') : 'Offline'}
+            <span className="text-[11px] capitalize text-[#858B98]">
+              {isOnline ? (status !== 'offline' ? status : 'Disponível') : 'Offline'}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-[#b5bac1]">
+        <div className="flex items-center gap-2 sm:gap-3 text-[#B5BAC3]">
+          <button
+            title="Iniciar chamada de voz"
+            className="p-1.5 rounded-lg hover:bg-[#34363E] text-[#B5BAC3] hover:text-[#F2F3F5] transition-colors cursor-pointer"
+          >
+            <Phone size={18} />
+          </button>
+          <button
+            title="Iniciar chamada de vídeo"
+            className="p-1.5 rounded-lg hover:bg-[#34363E] text-[#B5BAC3] hover:text-[#F2F3F5] transition-colors cursor-pointer"
+          >
+            <Video size={18} />
+          </button>
+
           {/* Pinned Messages Popover */}
           <Popover.Root>
             <Popover.Trigger asChild>
               <button
                 title="Mensagens fixadas"
                 className={`hover:text-white cursor-pointer transition-colors p-1.5 rounded relative ${
-                  pinnedMessages.length > 0 ? 'text-[#f0b232]' : ''
+                  pinnedMessages.length > 0 ? 'text-[#F4B942]' : ''
                 }`}
               >
                 <Pin size={18} className={pinnedMessages.length > 0 ? 'fill-current' : ''} />
                 {pinnedMessages.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-[#5865f2] text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                  <span className="absolute -top-0.5 -right-0.5 bg-[#7667F5] text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                     {pinnedMessages.length}
                   </span>
                 )}
@@ -136,30 +151,30 @@ function DmChatView({ conversationId }: { conversationId: string }) {
               <Popover.Content
                 side="bottom"
                 align="end"
-                className="w-80 max-h-96 bg-[#2b2d31] rounded-xl shadow-2xl border border-[#1f2023] p-4 text-xs z-50 text-[#dbdee1] flex flex-col space-y-2"
+                className="w-80 max-h-96 bg-[#2B2D33] rounded-xl shadow-2xl border border-[#3C3F48] p-4 text-xs z-50 text-[#F2F3F5] flex flex-col space-y-2"
               >
-                <div className="flex items-center justify-between border-b border-[#1f2023] pb-2 font-bold text-sm text-[#f2f3f5]">
+                <div className="flex items-center justify-between border-b border-[#3C3F48] pb-2 font-bold text-sm text-[#F2F3F5]">
                   <span className="flex items-center gap-1.5">
-                    <Pin size={15} className="text-[#f0b232] fill-current" /> Mensagens Fixadas ({pinnedMessages.length})
+                    <Pin size={15} className="text-[#F4B942] fill-current" /> Mensagens Fixadas ({pinnedMessages.length})
                   </span>
                 </div>
                 <div className="overflow-y-auto space-y-2 max-h-64 py-1">
                   {pinnedMessages.length === 0 ? (
-                    <p className="text-center py-6 text-[#949ba4]">Nenhuma mensagem fixada ainda.</p>
+                    <p className="text-center py-6 text-[#858B98]">Nenhuma mensagem fixada ainda.</p>
                   ) : (
                     pinnedMessages.map((m) => (
-                      <div key={m.id} className="p-2.5 rounded bg-[#1e1f22] border border-[#232428] space-y-1">
-                        <div className="flex items-center justify-between font-semibold text-[#f2f3f5]">
-                          <span className="text-xs text-[#00a8fc]">{m.authorName || 'Membro'}</span>
+                      <div key={m.id} className="p-2.5 rounded-lg bg-[#1B1C20] border border-[#3C3F48]/40 space-y-1">
+                        <div className="flex items-center justify-between font-semibold text-[#F2F3F5]">
+                          <span className="text-xs text-[#28A9F5]">{m.authorName || 'Membro'}</span>
                           <button
                             onClick={() => unpinMessage(m.id)}
-                            className="text-[#949ba4] hover:text-[#f23f43] p-1 rounded transition-colors cursor-pointer"
+                            className="text-[#858B98] hover:text-[#F04747] p-1 rounded transition-colors cursor-pointer"
                             title="Desafixar"
                           >
                             <X size={12} />
                           </button>
                         </div>
-                        <p className="text-[#dbdee1] text-xs line-clamp-3">{m.content || '[Anexo / Imagem]'}</p>
+                        <p className="text-[#B5BAC3] text-xs line-clamp-3">{m.content || '[Anexo / Imagem]'}</p>
                       </div>
                     ))
                   )}
@@ -174,17 +189,17 @@ function DmChatView({ conversationId }: { conversationId: string }) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Buscar na conversa`}
-              className="w-36 focus:w-56 transition-all pl-2.5 pr-7 py-1 text-xs rounded bg-[#1e1f22] text-[#dbdee1] placeholder-[#949ba4] outline-none border border-[#1e1f22] focus:border-[#5865f2]"
+              className="w-36 focus:w-56 transition-all pl-2.5 pr-7 py-1 text-xs rounded-lg bg-[#1B1C20] text-[#F2F3F5] placeholder-[#858B98] outline-none border border-[#3C3F48]/40 focus:border-[#7667F5]"
             />
             {searchQuery ? (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1.5 text-[#949ba4] hover:text-white"
+                className="absolute right-2 top-1.5 text-[#858B98] hover:text-white"
               >
                 <X size={12} />
               </button>
             ) : (
-              <Search size={13} className="absolute right-2 top-1.5 text-[#949ba4] pointer-events-none" />
+              <Search size={13} className="absolute right-2 top-1.5 text-[#858B98] pointer-events-none" />
             )}
           </div>
         </div>
@@ -205,6 +220,7 @@ function DmChatView({ conversationId }: { conversationId: string }) {
         onVisible={() => {}}
         onPin={pinMessage}
         onUnpin={unpinMessage}
+        scope="dm"
       />
 
       {/* Typing indicator */}
@@ -229,6 +245,23 @@ function DmChatView({ conversationId }: { conversationId: string }) {
               ]
             : []
         }
+      />
+
+      {/* Interactive Polls Modals */}
+      <CreatePollModal
+        open={isCreatePollOpen}
+        onClose={closeCreatePoll}
+        channelId={conversationId}
+        scope="dm"
+        onPollCreated={(pollId, title) => {
+          handleSend(`[POLL:${pollId}] ${title}`)
+        }}
+      />
+
+      <PollDetailsModal
+        pollId={activePollModalId}
+        onClose={closePollDetails}
+        channelName={`@${recipientName}`}
       />
     </div>
   )

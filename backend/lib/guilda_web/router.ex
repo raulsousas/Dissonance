@@ -99,12 +99,37 @@ defmodule GuildaWeb.Router do
     get    "/channels/:channel_id/messages", MessagesController, :index
     post   "/channels/:channel_id/messages", MessagesController, :create
 
+    # Search
+    get    "/servers/:server_id/search", SearchController, :index
+
+    # Polls
+    get    "/channels/:channel_id/polls", PollsController, :index
+    post   "/polls",                 PollsController, :create
+    get    "/polls/:id",             PollsController, :show
+    patch  "/polls/:id",             PollsController, :update
+    delete "/polls/:id",             PollsController, :delete
+    post   "/polls/:id/votes",       PollsController, :vote
+    post   "/polls/:id/options",     PollsController, :suggest_option
+    post   "/polls/:id/comments",    PollsController, :comment
+
+    # Message reminders
+    get    "/reminders",             RemindersController, :index
+    post   "/reminders",             RemindersController, :create
+    delete "/reminders/:id",         RemindersController, :delete
+
+    # Focus mode (silenced channels + summary)
+    get    "/focus/muted",                        FocusController, :index
+    put    "/channels/:channel_id/mute",          FocusController, :mute
+    delete "/channels/:channel_id/mute",          FocusController, :unmute
+    get    "/channels/:channel_id/focus-summary", FocusController, :summary
+
     # Friends (Phase 5)
     get    "/friends",               FriendsController, :index
     get    "/friends/requests",      FriendsController, :list_requests
     post   "/friends/requests",      FriendsController, :create_request
     post   "/friends/requests/:id/accept", FriendsController, :accept_request
     delete "/friends/requests/:id",  FriendsController, :decline_request
+    post   "/friends/:id/nudge",     FriendsController, :nudge
     delete "/friends/:id",           FriendsController, :delete
 
     # Direct Messages (Phase 5)

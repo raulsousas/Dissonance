@@ -133,6 +133,20 @@ defmodule GuildaWeb.ChannelChannelTest do
       assert_reply ref, :error, %{reason: _}
     end
   end
+  describe "polls channel" do
+    test "can be joined but rejects chat messages", %{owner_token: token, server: server} do
+      {:ok, polls_channel} = Channels.create_channel(server, %{name: "enquetes", type: "polls"})
+
+      socket = connect_as(token)
+      assert {:ok, _, joined} = subscribe_and_join(socket, "channel:#{polls_channel.id}", %{})
+
+      ref = push(joined, "new_message", %{"content" => "oi"})
+      assert_reply ref, :error, %{reason: "channel_does_not_accept_messages"}
+      assert Messaging.list_messages(polls_channel.id) == []
+    end
+  end
+
+
 
   describe "edit_message" do
     test "author can edit own message", %{owner_token: token, owner: owner, channel: channel} do

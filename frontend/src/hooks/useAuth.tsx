@@ -9,6 +9,7 @@ export interface CurrentUser {
   avatarUrl: string | null
   status: 'online' | 'away' | 'dnd' | 'invisible' | 'offline'
   role: 'member' | 'admin'
+  allowNudges?: boolean
   token?: string | null
 }
 
@@ -98,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           displayName: fields.displayName,
           avatarUrl: fields.avatarUrl,
           status: fields.status,
+          allowNudges: fields.allowNudges,
         }),
         credentials: 'include',
       })

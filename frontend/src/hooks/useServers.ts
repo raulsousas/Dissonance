@@ -11,7 +11,7 @@ export interface Server {
 export interface Channel {
   id: string
   name: string
-  type: 'text' | 'voice'
+  type: 'text' | 'voice' | 'polls'
   topic: string | null
   position: number
   categoryId: string | null
@@ -41,7 +41,7 @@ export interface Invite {
 
 // ── Servers ──────────────────────────────────────────────────────────────────
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, { credentials: 'include', ...init })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -107,7 +107,7 @@ export function useDeleteServer() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (serverId: string) =>
-      apiFetch(`/api/servers/${serverId}`, { method: 'DELETE' }),
+      apiFetch(`/api/servers/${serverId}?confirm=true`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['servers'] }),
   })
 }
@@ -152,6 +152,15 @@ export function useCreateChannel() {
           category_id: attrs.category_id ?? attrs.categoryId,
         }),
       }),
+    onSuccess: (_data, { serverId }) => qc.invalidateQueries({ queryKey: ['channels', serverId] }),
+  })
+}
+
+export function useDeleteChannel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ serverId, channelId }: { serverId: string; channelId: string }) =>
+      apiFetch(`/api/servers/${serverId}/channels/${channelId}`, { method: 'DELETE' }),
     onSuccess: (_data, { serverId }) => qc.invalidateQueries({ queryKey: ['channels', serverId] }),
   })
 }

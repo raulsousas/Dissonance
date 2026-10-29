@@ -56,7 +56,7 @@ export function QuickSwitcher() {
       title: s.name,
       subtitle: 'Servidor',
       type: 'server',
-      icon: <ServerIcon size={16} className="text-[#5865f2]" />,
+      icon: <ServerIcon size={16} className="text-[#7667F5]" />,
       onSelect: () => {
         navigate(`/app/servers/${s.id}`)
         setOpen(false)
@@ -72,9 +72,9 @@ export function QuickSwitcher() {
       subtitle: `Mensagem Direta • ${c.recipient.status || 'offline'}`,
       type: 'dm',
       icon: (
-        <Avatar.Root className="w-5 h-5 rounded-full overflow-hidden bg-[#2b2d31]">
+        <Avatar.Root className="w-5 h-5 rounded-full overflow-hidden bg-[#1B1C20]">
           <Avatar.Image src={c.recipient.avatarUrl ?? undefined} alt={c.recipient.displayName} className="w-full h-full object-cover" />
-          <Avatar.Fallback className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white bg-[#5865f2]">
+          <Avatar.Fallback className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white bg-[#7667F5]">
             {c.recipient.displayName[0]?.toUpperCase()}
           </Avatar.Fallback>
         </Avatar.Root>
@@ -94,7 +94,7 @@ export function QuickSwitcher() {
         title: f.displayName,
         subtitle: `Amigo • ${f.status || 'offline'}`,
         type: 'friend',
-        icon: <Users size={16} className="text-[#23a55a]" />,
+        icon: <Users size={16} className="text-[#35C98A]" />,
         onSelect: () => {
           navigate('/app/dm')
           setOpen(false)
@@ -129,10 +129,10 @@ export function QuickSwitcher() {
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-24 p-4 animate-in fade-in duration-150">
-          <Dialog.Content className="w-full max-w-xl bg-[#2b2d31] rounded-xl shadow-2xl border border-[#1f2023] overflow-hidden flex flex-col text-[#dbdee1] outline-none animate-in zoom-in-95 duration-150">
+          <Dialog.Content className="w-full max-w-xl bg-[#2B2D33] rounded-xl shadow-2xl border border-[#3C3F48] overflow-hidden flex flex-col text-[#F2F3F5] outline-none animate-in zoom-in-95 duration-150">
             {/* Search Input Bar */}
-            <div className="flex items-center gap-3 px-4 py-3.5 bg-[#1e1f22] border-b border-[#1f2023]">
-              <Search size={18} className="text-[#949ba4] shrink-0" />
+            <div className="flex items-center gap-3 px-4 py-3.5 bg-[#1B1C20] border-b border-[#3C3F48]/40">
+              <Search size={18} className="text-[#858B98] shrink-0" />
               <input
                 autoFocus
                 value={query}
@@ -142,9 +142,9 @@ export function QuickSwitcher() {
                 }}
                 onKeyDown={handleInputKeyDown}
                 placeholder="Aonde você gostaria de ir? (Servidores, DMs, Amigos...)"
-                className="w-full bg-transparent text-sm text-[#f2f3f5] placeholder-[#80848e] outline-none"
+                className="w-full bg-transparent text-sm text-[#F2F3F5] placeholder-[#858B98] outline-none"
               />
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2b2d31] text-[#949ba4] border border-[#3f4248] shrink-0">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2B2D33] text-[#858B98] border border-[#3C3F48] shrink-0">
                 ESC
               </span>
             </div>
@@ -152,7 +152,7 @@ export function QuickSwitcher() {
             {/* Results List */}
             <div className="max-h-80 overflow-y-auto p-2 space-y-1">
               {filtered.length === 0 ? (
-                <div className="py-8 text-center text-xs text-[#949ba4]">
+                <div className="py-8 text-center text-xs text-[#858B98]">
                   Nenhum resultado encontrado para &quot;{query}&quot;
                 </div>
               ) : (
@@ -165,17 +165,17 @@ export function QuickSwitcher() {
                       onMouseEnter={() => setSelectedIndex(idx)}
                       className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
                         isSelected
-                          ? 'bg-[#5865f2] text-white font-medium'
-                          : 'hover:bg-[#35373c] text-[#dbdee1]'
+                          ? 'bg-[#7667F5] text-white font-semibold'
+                          : 'hover:bg-[#34363E] text-[#B5BAC3] hover:text-[#F2F3F5]'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="shrink-0">{item.icon}</div>
                         <div className="flex flex-col min-w-0">
-                          <span className="text-sm truncate">{item.title}</span>
+                          <span className="text-sm truncate font-medium">{item.title}</span>
                           <span
                             className={`text-[11px] truncate ${
-                              isSelected ? 'text-white/80' : 'text-[#949ba4]'
+                              isSelected ? 'text-white/80' : 'text-[#858B98]'
                             }`}
                           >
                             {item.subtitle}
@@ -184,7 +184,7 @@ export function QuickSwitcher() {
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0 text-xs">
-                        <ArrowRight size={14} className={isSelected ? 'text-white' : 'text-[#949ba4]'} />
+                        <ArrowRight size={14} className={isSelected ? 'text-white' : 'text-[#858B98]'} />
                       </div>
                     </div>
                   )
@@ -193,12 +193,12 @@ export function QuickSwitcher() {
             </div>
 
             {/* Footer with key hints */}
-            <div className="px-4 py-2 bg-[#1e1f22] border-t border-[#1f2023] flex items-center justify-between text-[11px] text-[#949ba4]">
+            <div className="px-4 py-2 bg-[#1B1C20] border-t border-[#3C3F48]/40 flex items-center justify-between text-[11px] text-[#858B98]">
               <div className="flex items-center gap-3">
-                <span>Navegar <kbd className="px-1 py-0.5 bg-[#2b2d31] rounded">↑</kbd> <kbd className="px-1 py-0.5 bg-[#2b2d31] rounded">↓</kbd></span>
-                <span>Selecionar <kbd className="px-1 py-0.5 bg-[#2b2d31] rounded">↵</kbd></span>
+                <span>Navegar <kbd className="px-1 py-0.5 bg-[#2B2D33] rounded border border-[#3C3F48]">↑</kbd> <kbd className="px-1 py-0.5 bg-[#2B2D33] rounded border border-[#3C3F48]">↓</kbd></span>
+                <span>Selecionar <kbd className="px-1 py-0.5 bg-[#2B2D33] rounded border border-[#3C3F48]">↵</kbd></span>
               </div>
-              <span>Dissonance Quick Switcher</span>
+              <span className="font-semibold text-[#7667F5]">Dissonance Maiahi</span>
             </div>
           </Dialog.Content>
         </Dialog.Overlay>

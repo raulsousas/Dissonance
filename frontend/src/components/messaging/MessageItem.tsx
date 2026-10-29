@@ -6,14 +6,22 @@
 import { useState, useRef } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Pencil, Trash2, Reply, Check, X, FileText, Download, Pin } from 'lucide-react'
+import { Pencil, Trash2, Reply, CornerUpLeft, Check, X, FileText, Download, Pin, BellRing, ChevronRight } from 'lucide-react'
 import type { Message, Attachment } from '@/stores/messagingStore'
 import { useAuth } from '@/hooks/useAuth'
+import { toast } from '@/stores/toastStore'
+import { createReminder, reminderErrorMessage, reminderPresets } from '@/lib/reminders'
 import { FormattedMessage } from './FormattedMessage'
+import { PollMessageCard } from './PollMessageCard'
+import { UserProfilePopover } from './UserProfilePopover'
+import { usePollStore } from '@/stores/pollStore'
 // currentUser from useAuth has camelCase fields
 
 interface Props {
   message: Message
+  repliedMessage?: Message | null
+  isHighlighted?: boolean
+  onScrollToMessage?: (id: string) => void
   onEdit: (id: string, content: string) => void
   onDelete: (id: string) => void
   onReact: (id: string, emoji: string) => void
@@ -21,6 +29,8 @@ interface Props {
   onReply: (message: Message) => void
   onPin?: (id: string) => void
   onUnpin?: (id: string) => void
+  /** Whether the message belongs to a server channel (default) or a DM conversation. */
+  scope?: 'channel' | 'dm'
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉']
@@ -41,14 +51,55 @@ function formatDate(iso: string) {
   return `${d.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' })} ${formatTime(iso)}`
 }
 
-export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact, onReply, onPin, onUnpin }: Props) {
+/** Server greeting for a new member: a system-style line, not a chat bubble. */
+function WelcomeMessage({ message, isHighlighted }: { message: Message; isHighlighted?: boolean }) {
+  return (
+    <div
+      id={`message-${message.id}`}
+      className={`mx-4 my-1 px-3 py-2 flex items-center gap-3 rounded-lg border border-[#7667F5]/30 bg-[#7667F5]/[0.08] transition-all duration-300 ${
+        isHighlighted ? 'ring-2 ring-[#7667F5]' : ''
+      }`}
+    >
+      <span className="text-lg shrink-0" aria-hidden="true">👋</span>
+      <div className="min-w-0 flex-1 text-sm text-[#F2F3F5]">
+        <FormattedMessage content={message.content} />
+      </div>
+      <span className="text-[11px] text-[#858B98] shrink-0">{formatTime(message.insertedAt)}</span>
+    </div>
+  )
+}
+
+export function MessageItem({
+  message,
+  repliedMessage,
+  isHighlighted,
+  onScrollToMessage,
+  onEdit,
+  onDelete,
+  onReact,
+  onRemoveReact,
+  onReply,
+  onPin,
+  onUnpin,
+  scope = 'channel',
+}: Props) {
   const { currentUser: user } = useAuth()
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const editRef = useRef<HTMLTextAreaElement>(null)
 
   const isAuthor = user?.id === message.authorId
   const initials = message.authorName?.[0]?.toUpperCase() ?? '?'
+
+  async function handleRemind(at: Date, label: string) {
+    const result = await createReminder({ scope, messageId: message.id, remindAt: at })
+    if (result.ok) {
+      toast.success('Lembrete criado', label)
+    } else {
+      toast.error(reminderErrorMessage(result.status))
+    }
+  }
 
   function handleEditSubmit() {
     const trimmed = editContent.trim()
@@ -94,72 +145,150 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
     )
   }
 
+  if (message.kind === 'welcome') {
+    return <WelcomeMessage message={message} isHighlighted={isHighlighted} />
+  }
+
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>
         <div
-          className={`relative px-4 py-0.5 flex items-start gap-3 group rounded transition-colors ${
-            isMentioned
-              ? 'bg-[#f0b232]/[0.08] hover:bg-[#f0b232]/[0.12] border-l-2 border-[#f0b232]'
-              : 'hover:bg-[#2e3035]/60'
+          id={`message-${message.id}`}
+          className={`relative px-4 py-1 flex flex-col group rounded-md transition-all duration-300 ${
+            isHighlighted
+              ? 'bg-[#7667F5]/25 ring-2 ring-[#7667F5] shadow-lg'
+              : isMentioned
+              ? 'bg-[#7667F5]/[0.08] hover:bg-[#7667F5]/[0.14] border-l-2 border-[#7667F5]'
+              : 'hover:bg-[#2B2D33]/40'
           } ${
             message.pending ? 'opacity-60' : message.failed ? 'opacity-40' : ''
           }`}
         >
-          {/* Avatar */}
-          <div className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold mt-0.5"
-            style={{ background: 'var(--color-bg-surface)', color: 'var(--color-text-primary)' }}
-          >
-            {message.authorAvatar ? (
-              <img
-                src={message.authorAvatar}
-                alt={message.authorName ?? ''}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            ) : (
-              initials
-            )}
-          </div>
-
-          {/* Body */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2 mb-0.5">
-              <span className="text-sm font-semibold text-[#00a8fc] hover:underline cursor-pointer">
-                {message.authorName ?? 'Unknown'}
-              </span>
-              <span className="text-[11px] text-[#949ba4]">
-                {formatDate(message.insertedAt)}
-              </span>
-              {message.editedAt && (
-                <span className="text-[10px] text-[#949ba4]">
-                  (editado)
-                </span>
-              )}
-              {message.pinned && (
-                <span
-                  className="inline-flex items-center gap-0.5 text-[10px] text-[#f0b232] bg-[#f0b232]/10 px-1 py-0.5 rounded font-medium"
-                  title="Mensagem fixada"
-                >
-                  <Pin size={10} className="fill-current" /> Fixada
-                </span>
-              )}
-              {message.failed && (
-                <span className="text-xs text-red-400">Falha ao enviar</span>
-              )}
-            </div>
-
-            {/* Reply preview */}
-            {message.replyToId && (
-              <div
-                className="text-xs mb-1 pl-2 border-l-2 italic truncate max-w-md"
-                style={{
-                  borderColor: 'var(--color-text-muted)',
-                  color: 'var(--color-text-muted)',
-                }}
-              >
-                ↩ Reply to a message
+          {/* Discord Reply Spine & Header */}
+          {message.replyToId && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation()
+                if (message.replyToId && onScrollToMessage) {
+                  onScrollToMessage(message.replyToId)
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation()
+                  if (message.replyToId && onScrollToMessage) {
+                    onScrollToMessage(message.replyToId)
+                  }
+                }
+              }}
+              className="flex items-center gap-1.5 mb-1 pl-7 text-xs text-[#858B98] hover:text-[#F2F3F5] transition-colors cursor-pointer select-none max-w-full truncate group/reply"
+              title="Clique para ir até a mensagem respondida"
+            >
+              <div className="flex items-center text-[#858B98] group-hover/reply:text-[#F2F3F5] mr-0.5">
+                <CornerUpLeft size={13} className="shrink-0" />
               </div>
-            )}
+
+              {repliedMessage?.authorAvatar ? (
+                <img
+                  src={repliedMessage.authorAvatar}
+                  alt=""
+                  className="w-4 h-4 rounded-full object-cover shrink-0"
+                />
+              ) : repliedMessage?.authorName ? (
+                <div className="w-4 h-4 rounded-full bg-[#7667F5] text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                  {repliedMessage.authorName[0]?.toUpperCase()}
+                </div>
+              ) : null}
+
+              <span className="font-semibold text-[#28A9F5] group-hover/reply:underline shrink-0 text-xs">
+                {repliedMessage?.authorName ? `@${repliedMessage.authorName}` : 'Mensagem'}
+              </span>
+
+              <span className="truncate text-xs text-[#858B98] group-hover/reply:text-[#B5BAC3] font-normal">
+                {repliedMessage
+                  ? repliedMessage.content || (repliedMessage.attachments?.length ? '📷 [Anexo / Imagem]' : '[Mensagem]')
+                  : 'Mensagem original não encontrada'}
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-start gap-3 w-full">
+            {/* Avatar */}
+            {(() => {
+              const avatar = (
+                <div className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold mt-0.5 bg-[#2B2D33] text-[#F2F3F5] overflow-hidden"
+                >
+                  {message.authorAvatar ? (
+                    <img
+                      src={message.authorAvatar}
+                      alt={message.authorName ?? ''}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="w-full h-full flex items-center justify-center bg-[#7667F5] text-white font-bold">
+                      {initials}
+                    </span>
+                  )}
+                </div>
+              )
+              return message.authorId ? (
+                <UserProfilePopover
+                  userId={message.authorId}
+                  displayName={message.authorName ?? 'Unknown'}
+                  avatarUrl={message.authorAvatar}
+                >
+                  <button type="button" className="shrink-0 rounded-full cursor-pointer self-start">
+                    {avatar}
+                  </button>
+                </UserProfilePopover>
+              ) : (
+                avatar
+              )
+            })()}
+
+            {/* Body */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-2 mb-0.5">
+                {message.authorId ? (
+                  <UserProfilePopover
+                    userId={message.authorId}
+                    displayName={message.authorName ?? 'Unknown'}
+                    avatarUrl={message.authorAvatar}
+                  >
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-[#28A9F5] hover:underline cursor-pointer text-left"
+                    >
+                      {message.authorName ?? 'Unknown'}
+                    </button>
+                  </UserProfilePopover>
+                ) : (
+                  <span className="text-sm font-semibold text-[#28A9F5]">
+                    {message.authorName ?? 'Unknown'}
+                  </span>
+                )}
+                <span className="text-[11px] text-[#858B98]">
+                  {formatDate(message.insertedAt)}
+                </span>
+                {message.editedAt && (
+                  <span className="text-[10px] text-[#858B98]">
+                    (editado)
+                  </span>
+                )}
+                {message.pinned && (
+                  <span
+                    className="inline-flex items-center gap-0.5 text-[10px] text-[#F4B942] bg-[#F4B942]/10 px-1.5 py-0.5 rounded font-medium"
+                    title="Mensagem fixada"
+                  >
+                    <Pin size={10} className="fill-current" /> Fixada
+                  </span>
+                )}
+                {message.failed && (
+                  <span className="text-xs text-[#F04747]">Falha ao enviar</span>
+                )}
+              </div>
 
             {/* Content / edit mode */}
             {editing ? (
@@ -195,13 +324,29 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
               </div>
             ) : (
               message.content ? (
-                <FormattedMessage content={message.content} />
+                (() => {
+                  const pollMatch = message.content.match(/\[POLL:([a-zA-Z0-9_\-]+)\]/)
+                  if (pollMatch) {
+                    const pollId = pollMatch[1]
+                    const cleanText = message.content.replace(/\[POLL:[a-zA-Z0-9_\-]+\]\s*/, '').trim()
+                    return (
+                      <div className="space-y-1">
+                        {cleanText && <FormattedMessage content={cleanText} />}
+                        <PollMessageCard
+                          pollId={pollId}
+                          onOpenDetails={usePollStore.getState().openPollDetails}
+                        />
+                      </div>
+                    )
+                  }
+                  return <FormattedMessage content={message.content} />
+                })()
               ) : null
             )}
 
             {/* Attachments */}
             {message.attachments && message.attachments.length > 0 && (
-              <div className="flex flex-col gap-2 mt-2 max-w-lg">
+              <div className="flex flex-col items-start gap-2 mt-2 max-w-lg">
                 {message.attachments.map((att) => (
                   <AttachmentView
                     key={att.id || att.url}
@@ -225,29 +370,25 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
                           ? onRemoveReact(message.id, r.emoji)
                           : onReact(message.id, r.emoji)
                       }
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors ${
-                        active ? 'ring-1' : ''
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-[#7667F5]/20 text-[#7667F5] border border-[#7667F5]'
+                          : 'bg-[#2B2D33] hover:bg-[#3B3E47] text-[#B5BAC3] border border-[#3C3F48]/50'
                       }`}
-                      style={{
-                        background: active
-                          ? 'rgba(59,130,212,0.2)'
-                          : 'var(--color-bg-surface)',
-                        color: 'var(--color-text-primary)',
-                        outline: active ? '1px solid var(--color-accent)' : 'none',
-                      }}
                       title={`${r.count} reaction${r.count !== 1 ? 's' : ''}`}
                     >
                       <span>{r.emoji}</span>
-                      <span>{r.count}</span>
+                      <span className="font-semibold text-[11px]">{r.count}</span>
                     </button>
                   )
                 })}
               </div>
             )}
           </div>
+        </div>
 
-          {/* Quick-react / action buttons on hover (Discord floating bar) */}
-          <div className="hidden group-hover:flex items-center gap-0.5 absolute right-4 -top-3 z-10 bg-[#313338] border border-[#232428] rounded-md px-1 py-0.5 shadow-md">
+          {/* Quick-react / action buttons on hover (Maiahi floating bar) */}
+          <div className="hidden group-hover:flex items-center gap-0.5 absolute right-4 -top-3.5 z-10 bg-[#2B2D33] border border-[#3C3F48] rounded-lg px-1.5 py-0.5 shadow-xl">
             {QUICK_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
@@ -256,24 +397,24 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
                     ? onRemoveReact(message.id, emoji)
                     : onReact(message.id, emoji)
                 }
-                className="text-sm p-1 rounded hover:bg-white/10 transition-colors cursor-pointer"
-                title={`React with ${emoji}`}
+                className="text-sm p-1 rounded hover:bg-[#3B3E47] transition-colors cursor-pointer"
+                title={`Reagir com ${emoji}`}
               >
                 {emoji}
               </button>
             ))}
             <button
               onClick={() => onReply(message)}
-              className="p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
-              title="Reply"
+              className="p-1.5 rounded hover:bg-[#3B3E47] text-[#858B98] hover:text-[#F2F3F5] transition-colors cursor-pointer"
+              title="Responder"
             >
-              <Reply size={14} style={{ color: 'var(--color-text-muted)' }} />
+              <Reply size={14} />
             </button>
             {(onPin || onUnpin) && (
               <button
                 onClick={() => (message.pinned ? onUnpin?.(message.id) : onPin?.(message.id))}
-                className={`p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer ${
-                  message.pinned ? 'text-[#f0b232]' : 'text-[#949ba4]'
+                className={`p-1.5 rounded hover:bg-[#3B3E47] transition-colors cursor-pointer ${
+                  message.pinned ? 'text-[#F4B942]' : 'text-[#858B98] hover:text-[#F2F3F5]'
                 }`}
                 title={message.pinned ? 'Desafixar Mensagem' : 'Fixar Mensagem'}
               >
@@ -284,17 +425,17 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
               <>
                 <button
                   onClick={() => { setEditing(true); setEditContent(message.content) }}
-                  className="p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Edit"
+                  className="p-1.5 rounded hover:bg-[#3B3E47] text-[#858B98] hover:text-[#F2F3F5] transition-colors cursor-pointer"
+                  title="Editar"
                 >
-                  <Pencil size={14} style={{ color: 'var(--color-text-muted)' }} />
+                  <Pencil size={14} />
                 </button>
                 <button
-                  onClick={() => onDelete(message.id)}
-                  className="p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Delete"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="p-1.5 rounded hover:bg-[#3B3E47] text-[#858B98] hover:text-[#F04747] transition-colors cursor-pointer"
+                  title="Excluir"
                 >
-                  <Trash2 size={14} className="text-red-400" />
+                  <Trash2 size={14} />
                 </button>
               </>
             )}
@@ -323,6 +464,30 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
               {message.pinned ? 'Desafixar Mensagem' : 'Fixar Mensagem'}
             </ContextMenu.Item>
           )}
+          {!message.deleted && !message.pending && !message.id.startsWith('temp-') && (
+            <ContextMenu.Sub>
+              <ContextMenu.SubTrigger className="px-3 py-1.5 rounded cursor-pointer flex items-center gap-2 hover:bg-white/10 outline-none data-[state=open]:bg-white/10">
+                <BellRing size={14} /> Lembrar-me
+                <ChevronRight size={14} className="ml-auto" />
+              </ContextMenu.SubTrigger>
+              <ContextMenu.Portal>
+                <ContextMenu.SubContent
+                  className="z-50 min-w-[170px] rounded-md p-1 shadow-lg text-sm"
+                  style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}
+                >
+                  {reminderPresets().map((preset) => (
+                    <ContextMenu.Item
+                      key={preset.id}
+                      className="px-3 py-1.5 rounded cursor-pointer hover:bg-white/10 outline-none"
+                      onSelect={() => void handleRemind(preset.at, preset.label)}
+                    >
+                      {preset.label}
+                    </ContextMenu.Item>
+                  ))}
+                </ContextMenu.SubContent>
+              </ContextMenu.Portal>
+            </ContextMenu.Sub>
+          )}
           {QUICK_EMOJIS.slice(0, 3).map((emoji) => (
             <ContextMenu.Item
               key={emoji}
@@ -347,7 +512,7 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
               </ContextMenu.Item>
               <ContextMenu.Item
                 className="px-3 py-1.5 rounded cursor-pointer flex items-center gap-2 hover:bg-white/10 outline-none text-red-400"
-                onSelect={() => onDelete(message.id)}
+                onSelect={() => setDeleteConfirmOpen(true)}
               >
                 <Trash2 size={14} /> Delete Message
               </ContextMenu.Item>
@@ -355,6 +520,47 @@ export function MessageItem({ message, onEdit, onDelete, onReact, onRemoveReact,
           )}
         </ContextMenu.Content>
       </ContextMenu.Portal>
+      {/* Delete confirmation modal */}
+      <Dialog.Root open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/75 backdrop-blur-xs z-50 animate-in fade-in duration-150" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[#2B2D33] text-[#F2F3F5] rounded-2xl border border-[#3C3F48] p-5 shadow-2xl z-50 focus:outline-none animate-in fade-in zoom-in-95 duration-150 select-none">
+            <Dialog.Title className="text-base font-bold text-[#F2F3F5]">
+              Excluir mensagem
+            </Dialog.Title>
+            <Dialog.Description className="text-xs text-[#B5BAC3] mt-2 leading-relaxed">
+              Tem certeza de que deseja excluir esta mensagem? Esta ação não pode ser desfeita.
+            </Dialog.Description>
+
+            {/* Message preview snippet */}
+            <div className="mt-3 p-3 rounded-xl bg-[#1B1C20] border border-[#3C3F48]/50 text-xs text-[#858B98] line-clamp-3">
+              {message.content?.includes('[POLL:')
+                ? '📊 [Enquete]'
+                : message.content || (message.attachments?.length ? '📷 [Arquivo / Anexo]' : '[Mensagem]')}
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#B5BAC3] hover:text-white hover:bg-[#3B3E47] transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirmOpen(false)
+                  onDelete(message.id)
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-[#F04747] hover:bg-[#d83c3c] text-white transition-colors cursor-pointer shadow-md"
+              >
+                Excluir
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </ContextMenu.Root>
   )
 }
@@ -372,25 +578,25 @@ function AttachmentView({ attachment, messagePending }: { attachment: Attachment
 
   if (isUploading) {
     return (
-      <div className="flex flex-col justify-between p-3 rounded-lg bg-[#2b2d31] text-[#dbdee1] border border-[#1f2023] min-w-[280px] max-w-[340px]">
+      <div className="flex flex-col justify-between p-3 rounded-lg bg-[#2B2D33] text-[#F2F3F5] border border-[#3C3F48] min-w-[280px] max-w-[340px]">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-11 rounded bg-[#5865f2]/15 flex items-center justify-center shrink-0">
-            <FileText size={24} className="text-[#8592ff]" />
+          <div className="w-9 h-11 rounded bg-[#7667F5]/15 flex items-center justify-center shrink-0">
+            <FileText size={24} className="text-[#7667F5]" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-[#f2f3f5] truncate" title={attachment.filename}>
+            <p className="text-xs font-semibold text-[#F2F3F5] truncate" title={attachment.filename}>
               {attachment.filename}
             </p>
-            <p className="text-[11px] text-[#949ba4] mt-0.5">
+            <p className="text-[11px] text-[#858B98] mt-0.5">
               {formatFileSize(attachment.size)}
             </p>
           </div>
         </div>
 
-        {/* Discord Progress Bar (Image 2 style) */}
-        <div className="mt-3 w-full bg-[#1e1f22] rounded-full h-1.5 overflow-hidden">
+        {/* Progress Bar */}
+        <div className="mt-3 w-full bg-[#1B1C20] rounded-full h-1.5 overflow-hidden">
           <div
-            className="bg-[#5865f2] h-full rounded-full transition-all duration-150"
+            className="bg-[#7667F5] h-full rounded-full transition-all duration-150"
             style={{ width: `${Math.max(attachment.progress ?? 10, 10)}%` }}
           />
         </div>
@@ -404,12 +610,12 @@ function AttachmentView({ attachment, messagePending }: { attachment: Attachment
   if (isImage) {
     return (
       <>
-        <div className="rounded-lg overflow-hidden max-w-[550px] max-h-[380px] bg-[#1e1f22] border border-[#2b2d31] inline-flex items-center justify-center">
+        <div className="rounded-lg overflow-hidden w-fit max-w-full">
           <img
             src={attachment.url}
             alt={attachment.filename}
             onClick={() => setModalOpen(true)}
-            className="max-w-full max-h-[380px] rounded-lg object-contain cursor-pointer hover:opacity-95 transition-opacity block"
+            className="w-auto h-auto max-w-full max-h-[380px] rounded-lg cursor-pointer hover:opacity-95 transition-opacity block"
             loading="lazy"
           />
         </div>

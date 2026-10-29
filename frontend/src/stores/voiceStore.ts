@@ -15,6 +15,15 @@ export interface VoiceParticipant {
   screenAudioTrack?: any
 }
 
+/**
+ * The track a tile/preview should render. A camera that was switched off is only
+ * muted (the SDK keeps the publication and stops the device), so its track must not
+ * be rendered: it would show a black frame instead of the avatar.
+ */
+export function getActiveVideoTrack(p: Pick<VoiceParticipant, 'screenTrack' | 'videoTrack' | 'isVideoEnabled'>) {
+  return p.screenTrack || (p.isVideoEnabled ? p.videoTrack : undefined)
+}
+
 interface VoiceState {
   activeChannelId: string | null
   activeServerId: string | null
@@ -27,6 +36,8 @@ interface VoiceState {
   isScreenSharing: boolean
   error: string | null
   participants: VoiceParticipant[]
+  /** Participant whose live the voice panel should focus once it is on screen. */
+  focusSharerId: string | null
 
   // Actions
   setConnecting: (channelId: string, serverId: string, channelName: string) => void
@@ -38,6 +49,7 @@ interface VoiceState {
   setScreenSharing: (sharing: boolean) => void
   setError: (err: string | null) => void
   setParticipants: (participants: VoiceParticipant[]) => void
+  setFocusSharer: (identity: string | null) => void
   updateParticipant: (identity: string, patch: Partial<VoiceParticipant>) => void
 }
 
@@ -53,6 +65,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   isScreenSharing: false,
   error: null,
   participants: [],
+  focusSharerId: null,
 
   setConnecting: (channelId, serverId, channelName) =>
     set({
@@ -93,6 +106,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   setError: (error) => set({ error, isConnecting: false }),
 
   setParticipants: (participants) => set({ participants }),
+  setFocusSharer: (focusSharerId) => set({ focusSharerId }),
 
   updateParticipant: (identity, patch) =>
     set((state) => ({

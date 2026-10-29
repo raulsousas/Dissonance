@@ -18,6 +18,9 @@ defmodule Guilda.Application do
       # Redix connection pool for Redis
       {Redix, {System.get_env("REDIS_URL", "redis://localhost:6379"), [name: :redix]}},
 
+      # Fires due message reminders (state lives in Postgres)
+      Guilda.Reminders.Worker,
+
       # Endpoint (must be last)
       GuildaWeb.Endpoint
     ]

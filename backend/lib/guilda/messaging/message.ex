@@ -10,6 +10,8 @@ defmodule Guilda.Messaging.Message do
     field :edited_at, :utc_datetime
     field :deleted, :boolean, default: false
     field :pinned, :boolean, default: false
+    # "user" | "welcome". Not castable: only set by server code (see Messaging).
+    field :kind, :string, default: "user"
 
     belongs_to :channel, Guilda.Channels.Channel
     belongs_to :author, Guilda.Accounts.User

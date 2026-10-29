@@ -34,6 +34,8 @@ export interface Message {
   editedAt: string | null
   deleted: boolean
   pinned?: boolean
+  /** "welcome" = automatic greeting posted by the server when someone joins. */
+  kind?: 'user' | 'welcome'
   reactions: Reaction[]
   attachments?: Attachment[]
   insertedAt: string

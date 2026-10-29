@@ -10,6 +10,8 @@ export interface UserPresenceInfo {
   voiceChannelId?: string | null
   isMuted?: boolean
   isDeafened?: boolean
+  /** Sharing their screen inside `voiceChannelId`. */
+  isSharing?: boolean
   onlineAt?: number
 }
 
@@ -40,15 +42,15 @@ export function getStatusLabel(status: string | undefined | null): string {
 export function getStatusColor(status: string | undefined | null): string {
   switch (status) {
     case 'online':
-      return '#23a55a'
+      return '#35C98A'
     case 'away':
-      return '#f0b232'
+      return '#F4B942'
     case 'dnd':
-      return '#f23f43'
+      return '#F04747'
     case 'invisible':
     case 'offline':
     default:
-      return '#80848e'
+      return '#858B98'
   }
 }
 
@@ -186,6 +188,7 @@ export function initGlobalPresence(token: string | null, initialStatus?: string)
           voiceChannelId: voiceMeta ? voiceMeta.voice_channel_id : (primaryMeta.voice_channel_id ?? null),
           isMuted: Boolean(voiceMeta ? voiceMeta.voice_muted : primaryMeta.voice_muted),
           isDeafened: Boolean(voiceMeta ? voiceMeta.voice_deafened : primaryMeta.voice_deafened),
+          isSharing: Boolean(voiceMeta ? voiceMeta.voice_sharing : primaryMeta.voice_sharing),
           onlineAt: primaryMeta.online_at,
         }
       }
@@ -208,6 +211,7 @@ export function initGlobalPresence(token: string | null, initialStatus?: string)
           voice_channel_id: currentVoiceChannelId,
           is_muted: currentVoiceMuted,
           is_deafened: currentVoiceDeafened,
+          is_sharing: currentVoiceSharing,
         })
       }
     })
@@ -219,21 +223,34 @@ export function initGlobalPresence(token: string | null, initialStatus?: string)
 let currentVoiceChannelId: string | null = null
 let currentVoiceMuted = false
 let currentVoiceDeafened = false
+let currentVoiceSharing = false
 
+/**
+ * Publishes the user's voice state to everyone via presence.
+ * `isSharing` is optional: omitting it keeps the last known value, so mute/deafen
+ * updates never clear an ongoing screen share. Leaving the channel always clears it.
+ */
 export function updateGlobalVoiceChannel(
   voiceChannelId: string | null,
   isMuted: boolean = false,
-  isDeafened: boolean = false
+  isDeafened: boolean = false,
+  isSharing?: boolean
 ) {
   currentVoiceChannelId = voiceChannelId
   currentVoiceMuted = isMuted
   currentVoiceDeafened = isDeafened
-  console.info('[Guilda:Presence] Updating global voice channel ->', voiceChannelId, { isMuted, isDeafened })
+  currentVoiceSharing = voiceChannelId ? (isSharing ?? currentVoiceSharing) : false
+  console.info('[Guilda:Presence] Updating global voice channel ->', voiceChannelId, {
+    isMuted,
+    isDeafened,
+    isSharing: currentVoiceSharing,
+  })
   if (activeChannel) {
     activeChannel.push('update_voice_channel', {
       voice_channel_id: voiceChannelId,
       is_muted: isMuted,
       is_deafened: isDeafened,
+      is_sharing: currentVoiceSharing,
     })
   }
 }

@@ -13,10 +13,30 @@ import {
 } from 'livekit-client'
 import { useVoiceStore, type VoiceParticipant } from '@/stores/voiceStore'
 import { updateGlobalVoiceChannel } from '@/hooks/usePresence'
+import { toast } from '@/stores/toastStore'
+import { classifyScreenShareError, isConstraintError } from '@/lib/screenShare'
 import { playVoiceJoinSound, playVoiceLeaveSound, playMuteSound } from '@/lib/soundEffects'
 
 let currentRoom: Room | null = null
 let isConnectingLock = false
+let cameraToggleInFlight = false
+
+/**
+ * Shares the user's mute/deafen state through LiveKit participant metadata.
+ * A rejection (e.g. a token without `canUpdateOwnMetadata`) must never break the
+ * toggle itself, so it is only logged; presence still carries the state.
+ */
+function publishVoiceMetadata(room: Room, isMuted: boolean, isDeafened: boolean) {
+  room.localParticipant
+    .setMetadata(JSON.stringify({ isMuted, isDeafened }))
+    .catch((e) => console.warn('[Guilda:Voice] Could not publish voice metadata:', e))
+}
+
+/** Pushes the current mute/deafen/sharing state to presence (the sidebar's source of truth). */
+function publishVoicePresence(isSharing?: boolean) {
+  const s = useVoiceStore.getState()
+  updateGlobalVoiceChannel(s.activeChannelId, s.isMuted, s.isDeafened, isSharing)
+}
 
 function syncRoomParticipants(room: Room) {
   const store = useVoiceStore.getState()
@@ -263,6 +283,7 @@ export function useVoice() {
       currentRoom = null
     }
     updateGlobalVoiceChannel(null)
+    currentStore.setFocusSharer(null)
     currentStore.setDisconnected()
   }, [])
 
@@ -276,52 +297,32 @@ export function useVoice() {
       return
     }
 
-    const local = currentRoom.localParticipant
+    const room = currentRoom
+    const local = room.localParticipant
     const mic = local.getTrackPublication(Track.Source.Microphone)
+    const wasMuted = useVoiceStore.getState().isMuted
 
-    if (mic && mic.track) {
-      const willMute = !mic.isMuted
-      console.info(`[Guilda:Voice] Toggling mic mute -> ${willMute}`)
-      if (willMute) {
-        await mic.track.mute()
+    try {
+      if (mic && mic.track) {
+        console.info(`[Guilda:Voice] Toggling mic mute -> ${!mic.isMuted}`)
+        if (mic.isMuted) await mic.track.unmute()
+        else await mic.track.mute()
       } else {
-        await mic.track.unmute()
-      }
-      useVoiceStore.getState().setMuted(willMute)
-      local.setMetadata(
-        JSON.stringify({
-          isMuted: willMute,
-          isDeafened: useVoiceStore.getState().isDeafened,
-        })
-      )
-      updateGlobalVoiceChannel(
-        useVoiceStore.getState().activeChannelId,
-        willMute,
-        useVoiceStore.getState().isDeafened
-      )
-      playMuteSound(willMute)
-      syncRoomParticipants(currentRoom)
-    } else {
-      try {
         console.info('[Guilda:Voice] Enabling microphone track on localParticipant')
         await local.setMicrophoneEnabled(true)
-        useVoiceStore.getState().setMuted(false)
-        local.setMetadata(
-          JSON.stringify({
-            isMuted: false,
-            isDeafened: useVoiceStore.getState().isDeafened,
-          })
-        )
-        updateGlobalVoiceChannel(
-          useVoiceStore.getState().activeChannelId,
-          false,
-          useVoiceStore.getState().isDeafened
-        )
-        syncRoomParticipants(currentRoom)
-      } catch (e) {
-        console.warn('[Guilda:Voice] Could not enable microphone:', e)
       }
+    } catch (e) {
+      // Fall through: we still publish what actually happened, so lists never drift.
+      console.warn('[Guilda:Voice] Could not toggle microphone:', e)
     }
+
+    const after = local.getTrackPublication(Track.Source.Microphone)
+    const nowMuted = after ? after.isMuted : true
+    useVoiceStore.getState().setMuted(nowMuted)
+    publishVoiceMetadata(room, nowMuted, useVoiceStore.getState().isDeafened)
+    publishVoicePresence()
+    if (nowMuted !== wasMuted) playMuteSound(nowMuted)
+    syncRoomParticipants(room)
   }, [])
 
   const toggleDeafen = useCallback(() => {
@@ -336,7 +337,7 @@ export function useVoice() {
         const local = currentRoom.localParticipant
         const mic = local.getTrackPublication(Track.Source.Microphone)
         if (mic && mic.track) {
-          mic.track.mute()
+          mic.track.mute().catch((e) => console.warn('[Guilda:Voice] Could not mute mic on deafen:', e))
         }
       }
     }
@@ -347,12 +348,7 @@ export function useVoice() {
     })
 
     if (currentRoom) {
-      currentRoom.localParticipant.setMetadata(
-        JSON.stringify({
-          isMuted: willMute,
-          isDeafened: willDeafen,
-        })
-      )
+      publishVoiceMetadata(currentRoom, willMute, willDeafen)
       syncRoomParticipants(currentRoom)
     }
 
@@ -360,16 +356,25 @@ export function useVoice() {
   }, [])
 
   const toggleVideo = useCallback(async () => {
-    if (!currentRoom) return
-    const local = currentRoom.localParticipant
-    const isVideo = useVoiceStore.getState().isVideoEnabled
+    // Rapid clicks used to start overlapping enable/disable cycles that left the
+    // camera track and the UI state out of step. One toggle at a time.
+    if (!currentRoom || cameraToggleInFlight) return
+    cameraToggleInFlight = true
+    const room = currentRoom
+    const local = room.localParticipant
+    const camPub = local.getTrackPublication(Track.Source.Camera)
+    const isVideo = Boolean(camPub?.track) && !camPub?.isMuted
 
     try {
       await local.setCameraEnabled(!isVideo)
-      useVoiceStore.getState().setVideoEnabled(!isVideo)
-      syncRoomParticipants(currentRoom)
     } catch (e) {
       console.warn('Could not toggle camera:', e)
+    } finally {
+      cameraToggleInFlight = false
+      // Reflect what actually happened, not what was requested.
+      const after = local.getTrackPublication(Track.Source.Camera)
+      useVoiceStore.getState().setVideoEnabled(Boolean(after?.track) && !after?.isMuted)
+      syncRoomParticipants(room)
     }
   }, [])
 
@@ -390,34 +395,68 @@ export function useVoice() {
         screenAudioPub.track.stop()
       }
       useVoiceStore.getState().setScreenSharing(false)
+      publishVoicePresence(false)
       syncRoomParticipants(currentRoom)
     } else {
+      let tracks: Awaited<ReturnType<typeof createLocalScreenTracks>> = []
       try {
-        const tracks = await createLocalScreenTracks({
-          audio: {
-            autoGainControl: false,
-            echoCancellation: false,
-            noiseSuppression: false,
-            channelCount: 2,
-          },
-          systemAudio: 'include',
-          selfBrowserSurface: 'include',
-          surfaceSwitching: 'include',
-          suppressLocalAudioPlayback: false,
-        } as any)
-
-        for (const track of tracks) {
-          await local.publishTrack(track)
-          track.on('ended', () => {
-            useVoiceStore.getState().setScreenSharing(false)
-            if (currentRoom) syncRoomParticipants(currentRoom)
-          })
+        try {
+          tracks = await createLocalScreenTracks({
+            audio: {
+              autoGainControl: false,
+              echoCancellation: false,
+              noiseSuppression: false,
+              channelCount: 2,
+            },
+            systemAudio: 'include',
+            selfBrowserSurface: 'include',
+            surfaceSwitching: 'include',
+            suppressLocalAudioPlayback: false,
+          } as any)
+        } catch (e) {
+          // Some browsers reject the advanced options before showing the picker.
+          // Retry with the plain request (screen/window/tab picker, no audio).
+          if (!isConstraintError(e)) throw e
+          console.warn('Screen share rejected advanced options, retrying with defaults:', e)
+          tracks = await createLocalScreenTracks({ audio: false })
         }
 
-        useVoiceStore.getState().setScreenSharing(true)
+        for (const track of tracks) {
+          // Listen before publishing: the capture can end while publishTrack is awaited,
+          // and a late listener would miss it and leave the UI showing "sharing".
+          track.on('ended', () => {
+            useVoiceStore.getState().setScreenSharing(false)
+            publishVoicePresence(false)
+            if (currentRoom) syncRoomParticipants(currentRoom)
+          })
+          await local.publishTrack(track)
+        }
+
+        // Trust the actual publication, not the click: if the SDK already dropped
+        // the screen track (capture ended during publish) there is nothing to show.
+        const published = local.getTrackPublication(Track.Source.ScreenShare)
+
+        if (published?.track) {
+          useVoiceStore.getState().setScreenSharing(true)
+          publishVoicePresence(true)
+        } else {
+          tracks.forEach((t) => t.stop())
+          useVoiceStore.getState().setScreenSharing(false)
+          publishVoicePresence(false)
+          toast.error(
+            'O compartilhamento foi encerrado logo após iniciar',
+            'A captura da tela terminou antes de ser enviada. Tente compartilhar novamente.'
+          )
+        }
         syncRoomParticipants(currentRoom)
       } catch (e) {
-        console.warn('Screen share error or cancelled by user:', e)
+        // Release the capture (and the browser's "sharing" indicator) if we got
+        // as far as capturing but could not publish.
+        tracks.forEach((t) => t.stop())
+
+        const failure = classifyScreenShareError(e)
+        console.warn('Screen share failed:', e)
+        if (failure.kind !== 'cancelled') toast.error(failure.title, failure.description)
       }
     }
   }, [])

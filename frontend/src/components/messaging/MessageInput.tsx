@@ -4,10 +4,11 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { SendHorizonal, X, FileText, Hash, Volume2, Users, Plus } from 'lucide-react'
+import { SendHorizonal, X, FileText, Hash, Volume2, Users, Plus, Vote } from 'lucide-react'
 import type { Message, Attachment } from '@/stores/messagingStore'
 import { EmojiPicker } from './EmojiPicker'
 import { GifPicker } from './GifPicker'
+import { usePollStore } from '@/stores/pollStore'
 
 export interface MentionMember {
   id: string
@@ -57,12 +58,13 @@ export function MessageInput({
   const [content, setContent] = useState('')
   const [pendingFiles, setPendingFiles] = useState<{ file: File; previewUrl?: string }[]>([])
   const [autocomplete, setAutocomplete] = useState<{
-    trigger: '@' | '#'
+    trigger: '@' | '#' | '$'
     query: string
     startIndex: number
   } | null>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
 
+  const openCreatePoll = usePollStore((s) => s.openCreatePoll)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -156,6 +158,20 @@ export function MessageInput({
         .slice(0, 8)
     }
 
+    if (autocomplete.trigger === '$') {
+      const actions = [
+        {
+          id: 'create_poll',
+          name: 'Criar enquete',
+          isPoll: true,
+          desc: 'Crie uma votação para o servidor',
+        },
+      ]
+      return actions.filter(
+        (a) => a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q)
+      )
+    }
+
     return []
   })()
 
@@ -164,10 +180,19 @@ export function MessageInput({
     setSelectedIndex(0)
   }, [autocomplete?.query, autocomplete?.trigger])
 
-  function selectAutocompleteItem(item: { name: string }) {
+  function selectAutocompleteItem(item: { name: string; isPoll?: boolean }) {
     if (!autocomplete || !textareaRef.current) return
     const beforeTrigger = content.slice(0, autocomplete.startIndex)
     const afterCursor = content.slice(textareaRef.current.selectionStart || autocomplete.startIndex + autocomplete.query.length + 1)
+
+    if (item.isPoll || autocomplete.trigger === '$') {
+      // Remove the $ character without sending it and open poll creation modal
+      setContent(beforeTrigger + afterCursor)
+      setAutocomplete(null)
+      openCreatePoll()
+      return
+    }
+
     const insertion = `${autocomplete.trigger}${item.name} `
     const newContent = beforeTrigger + insertion + afterCursor
     setContent(newContent)
@@ -223,13 +248,13 @@ export function MessageInput({
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
 
-    // Check for @ or # triggers
+    // Check for @, # or $ triggers
     const cursor = el.selectionStart || val.length
     const textBefore = val.slice(0, cursor)
-    const match = textBefore.match(/(?:^|\s)([@#])([a-zA-Z0-9_\-\u00C0-\u017F]*)$/)
+    const match = textBefore.match(/(?:^|\s)([@#$])([a-zA-Z0-9_\-\u00C0-\u017F]*)$/)
 
     if (match) {
-      const trigger = match[1] as '@' | '#'
+      const trigger = match[1] as '@' | '#' | '$'
       const query = match[2]
       const startIndex = cursor - query.length - 1
       setAutocomplete({ trigger, query, startIndex })
@@ -261,9 +286,15 @@ export function MessageInput({
     <div className="relative px-4 pb-6 shrink-0">
       {/* Autocomplete Mention / Channel Popover */}
       {autocomplete && autocompleteItems.length > 0 && (
-        <div className="absolute left-4 right-4 bottom-[calc(100%-8px)] mb-2 bg-[#2b2d31] rounded-lg shadow-2xl border border-[#1f2023] overflow-hidden z-50 text-xs">
-          <div className="px-3 py-1.5 bg-[#1e1f22] text-[#949ba4] font-semibold uppercase text-[10px] tracking-wider border-b border-[#232428] flex items-center justify-between">
-            <span>{autocomplete.trigger === '@' ? 'Membros & Menções' : 'Canais'}</span>
+        <div className="absolute left-4 right-4 bottom-[calc(100%-8px)] mb-2 bg-[#2B2D33] rounded-lg shadow-2xl border border-[#3C3F48] overflow-hidden z-50 text-xs">
+          <div className="px-3 py-1.5 bg-[#202127] text-[#858B98] font-semibold uppercase text-[10px] tracking-wider border-b border-[#3C3F48] flex items-center justify-between">
+            <span>
+              {autocomplete.trigger === '@'
+                ? 'Membros & Menções'
+                : autocomplete.trigger === '#'
+                ? 'Canais'
+                : 'Ações & Enquetes'}
+            </span>
             <span className="text-[9px] font-normal lowercase">Tab ou Enter para selecionar</span>
           </div>
           <div className="max-h-52 overflow-y-auto py-1">
@@ -276,31 +307,35 @@ export function MessageInput({
                   onClick={() => selectAutocompleteItem(item)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`w-full px-3 py-2 flex items-center gap-2 text-left transition-colors cursor-pointer ${
-                    isSelected ? 'bg-[#35373c] text-white' : 'text-[#dbdee1] hover:bg-[#35373c]/50'
+                    isSelected ? 'bg-[#34363E] text-white' : 'text-[#B5BAC3] hover:bg-[#3B3E47]/50'
                   }`}
                 >
                   {autocomplete.trigger === '@' ? (
                     'isSpecial' in item && item.isSpecial ? (
-                      <div className="w-6 h-6 rounded-full bg-[#f0b232]/20 text-[#f0b232] flex items-center justify-center font-bold text-xs shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-[#F4B942]/20 text-[#F4B942] flex items-center justify-center font-bold text-xs shrink-0">
                         <Users size={13} />
                       </div>
                     ) : 'avatarUrl' in item && item.avatarUrl ? (
                       <img src={item.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-[#5865f2] text-white flex items-center justify-center font-semibold text-xs shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-[#7667F5] text-white flex items-center justify-center font-semibold text-xs shrink-0">
                         {item.name[0]?.toUpperCase() ?? '?'}
                       </div>
                     )
+                  ) : 'isPoll' in item && item.isPoll ? (
+                    <div className="w-6 h-6 rounded-lg bg-[#7667F5]/20 text-[#7667F5] flex items-center justify-center font-bold text-xs shrink-0">
+                      <Vote size={14} />
+                    </div>
                   ) : 'type' in item && item.type === 'voice' ? (
-                    <Volume2 size={16} className="text-[#949ba4] shrink-0" />
+                    <Volume2 size={16} className="text-[#858B98] shrink-0" />
                   ) : (
-                    <Hash size={16} className="text-[#949ba4] shrink-0" />
+                    <Hash size={16} className="text-[#858B98] shrink-0" />
                   )}
 
                   <div className="flex-1 min-w-0">
                     <span className="font-semibold text-sm truncate block">{item.name}</span>
                     {'desc' in item && item.desc && (
-                      <span className="text-[11px] text-[#949ba4] block truncate">{item.desc}</span>
+                      <span className="text-[11px] text-[#858B98] block truncate">{item.desc}</span>
                     )}
                   </div>
                 </button>
@@ -322,20 +357,18 @@ export function MessageInput({
       {/* Reply preview */}
       {replyTo && (
         <div
-          className="mb-1 mx-1 px-3 py-1.5 rounded-t-lg flex items-center gap-2 text-xs"
-          style={{
-            background: 'var(--color-bg-surface)',
-            color: 'var(--color-text-muted)',
-            borderBottom: '1px solid var(--color-border)',
-          }}
+          className="mb-1 px-3 py-2 rounded-t-lg flex items-center justify-between gap-2 text-xs bg-[#202127] border-b border-[#3C3F48] text-[#858B98] shadow-xs"
         >
-          <span className="flex-1 truncate">
-            ↩ Replying to <strong>{replyTo.authorName ?? 'Unknown'}</strong>: {replyTo.content}
-          </span>
+          <div className="flex items-center gap-2 min-w-0 flex-1 truncate">
+            <span className="shrink-0 text-[#858B98]">↩ Replying to</span>
+            <span className="font-semibold text-[#28A9F5] shrink-0">@{replyTo.authorName ?? 'Unknown'}</span>
+            <span className="truncate text-[#B5BAC3]">{replyTo.content || '[Anexo]'}</span>
+          </div>
           <button
             onClick={onCancelReply}
-            className="hover:opacity-70 transition-opacity ml-1 cursor-pointer"
+            className="p-1 rounded-full hover:bg-[#34363E] text-[#858B98] hover:text-[#F04747] transition-colors ml-1 cursor-pointer shrink-0"
             aria-label="Cancel reply"
+            title="Cancelar resposta"
           >
             <X size={14} />
           </button>
@@ -344,11 +377,11 @@ export function MessageInput({
 
       {/* Attachment Preview Chips inside text area (Discord Style) */}
       {pendingFiles.length > 0 && (
-        <div className="mb-2 p-2 rounded-t-lg bg-[#2b2d31] flex flex-wrap gap-2 border-b border-[#1f2023]">
+        <div className="mb-2 p-2 rounded-t-lg bg-[#202127] flex flex-wrap gap-2 border-b border-[#3C3F48]">
           {pendingFiles.map((item, idx) => (
             <div
               key={idx}
-              className="relative group flex items-center gap-2 px-2.5 py-1.5 rounded bg-[#1e1f22] text-[#dbdee1] border border-[#35373c] max-w-[220px]"
+              className="relative group flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[#2B2D33] text-[#F2F3F5] border border-[#3C3F48] max-w-[220px]"
             >
               {item.previewUrl ? (
                 <img
@@ -357,16 +390,16 @@ export function MessageInput({
                   className="w-8 h-8 rounded object-cover shrink-0"
                 />
               ) : (
-                <FileText size={18} className="text-[#949ba4] shrink-0" />
+                <FileText size={18} className="text-[#858B98] shrink-0" />
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium truncate">{item.file.name}</p>
-                <p className="text-[10px] text-[#949ba4]">{formatFileSize(item.file.size)}</p>
+                <p className="text-[10px] text-[#858B98]">{formatFileSize(item.file.size)}</p>
               </div>
               <button
                 type="button"
                 onClick={() => handleRemoveFile(idx)}
-                className="p-1 rounded text-[#949ba4] hover:text-[#f23f43] hover:bg-[#35373c] transition-colors cursor-pointer"
+                className="p-1 rounded text-[#858B98] hover:text-[#F04747] hover:bg-[#3B3E47] transition-colors cursor-pointer"
                 title="Remover anexo"
               >
                 <X size={13} />
@@ -377,28 +410,27 @@ export function MessageInput({
       )}
 
       <div
-        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${
+        className={`flex items-center gap-2 rounded-lg px-3 py-2 bg-[#2B2D33] border border-[#3C3F48]/50 focus-within:border-[#7667F5] transition-colors ${
           replyTo || pendingFiles.length > 0 ? 'rounded-t-none' : ''
         }`}
-        style={{ background: '#383a40' }}
       >
         {/* Circular + attachment button */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
-          className="shrink-0 w-6 h-6 rounded-full bg-[#4e5058] hover:bg-[#b5bac1] text-[#2b2d31] hover:text-[#111214] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-40"
+          className="shrink-0 w-6 h-6 rounded-full bg-[#34363E] hover:bg-[#7667F5] text-[#B5BAC3] hover:text-white flex items-center justify-center transition-colors cursor-pointer disabled:opacity-40"
           title="Adicionar arquivo ou imagem"
           aria-label="Attach file"
         >
-          <Plus size={14} className="stroke-[3] text-[#2b2d31] shrink-0" />
+          <Plus size={14} className="stroke-[3] shrink-0" />
         </button>
 
         <textarea
           ref={textareaRef}
           rows={1}
-          className="flex-1 bg-transparent resize-none outline-none text-sm py-1 placeholder-[#80848e]"
-          style={{ color: '#dbdee1', maxHeight: '200px' }}
+          className="flex-1 bg-transparent resize-none outline-none text-sm py-0.5 placeholder-[#858B98] text-[#F2F3F5]"
+          style={{ maxHeight: '200px' }}
           placeholder={
             disabled
               ? 'Você não tem permissão para enviar mensagens.'
@@ -418,14 +450,24 @@ export function MessageInput({
         {content.length > MAX_LENGTH - 200 && (
           <span
             className="text-xs shrink-0"
-            style={{ color: overLimit ? 'var(--color-danger)' : 'var(--color-text-muted)' }}
+            style={{ color: overLimit ? '#F04747' : '#858B98' }}
           >
             {MAX_LENGTH - content.length}
           </span>
         )}
 
         {/* Right utility buttons inside input */}
-        <div className="flex items-center gap-2 text-[#b5bac1] shrink-0">
+        <div className="flex items-center gap-2 text-[#858B98] shrink-0">
+          <button
+            type="button"
+            onClick={() => openCreatePoll()}
+            disabled={disabled}
+            className="p-1 rounded hover:bg-[#3B3E47] text-[#858B98] hover:text-[#7667F5] transition-colors cursor-pointer"
+            title="Criar enquete ($)"
+            aria-label="Criar enquete"
+          >
+            <Vote size={18} />
+          </button>
           <GifPicker
             onSelectGif={(url) => {
               onSend(url, replyTo?.id)
@@ -437,13 +479,13 @@ export function MessageInput({
           <button
             onClick={handleSend}
             disabled={!canSend}
-            className="p-1 rounded hover:bg-white/10 transition-colors disabled:opacity-30 cursor-pointer"
+            className="p-1 rounded hover:bg-[#3B3E47] transition-colors disabled:opacity-30 cursor-pointer text-[#858B98] hover:text-[#7667F5]"
             title="Enviar"
             aria-label="Send"
           >
             <SendHorizonal
               size={18}
-              style={{ color: canSend ? '#5865f2' : '#80848e' }}
+              style={{ color: canSend ? '#7667F5' : '#858B98' }}
             />
           </button>
         </div>

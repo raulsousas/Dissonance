@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ChevronDown,
@@ -14,18 +15,22 @@ import {
   MicOff,
   Headphones,
   Search,
-  Gem,
   Calendar,
+  Trash2,
+  BarChart3,
+  BellOff,
+  BellRing,
 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Avatar from '@radix-ui/react-avatar'
-import { useServerDetail, useChannels, useCreateChannel, useCreateCategory, useCreateInvite, useLeaveServer, type Channel } from '@/hooks/useServers'
+import { useServerDetail, useChannels, useCreateChannel, useDeleteChannel, useCreateCategory, useCreateInvite, useLeaveServer, type Channel } from '@/hooks/useServers'
 import { useAuth } from '@/hooks/useAuth'
 import { useVoiceStore } from '@/stores/voiceStore'
 import { useVoice } from '@/hooks/useVoice'
 import { usePresence } from '@/hooks/usePresence'
 import { useMessagingStore } from '@/stores/messagingStore'
+import { useFocusStore } from '@/stores/focusStore'
 import { ServerSettingsModal } from '@/components/modals/ServerSettingsModal'
 import { toast } from '@/stores/toastStore'
 
@@ -81,7 +86,7 @@ export default function ChannelSidebar({ serverId }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1f22] select-none text-[#dbdee1]">
+    <div className="flex flex-col h-full bg-[#202127] select-none text-[#B5BAC3]">
       {/* Server Header with mobile Discord styling */}
       <ServerHeader
         server={server}
@@ -93,34 +98,21 @@ export default function ChannelSidebar({ serverId }: Props) {
       {/* Mobile Discord Search capsule */}
       <div className="px-3 pt-2 pb-1">
         <div className="relative flex items-center w-full">
-          <Search size={15} className="absolute left-3 text-[#949ba4] pointer-events-none" />
+          <Search size={15} className="absolute left-3 text-[#858B98] pointer-events-none" />
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar"
-            className="w-full h-8 pl-9 pr-7 rounded-lg text-xs bg-[#111214] text-[#dbdee1] placeholder-[#949ba4] outline-none border border-transparent focus:border-[#5865f2] transition-all"
+            className="w-full h-8 pl-9 pr-7 rounded-lg text-xs bg-[#1B1C20] text-[#F2F3F5] placeholder-[#858B98] outline-none border border-[#3C3F48]/40 focus:border-[#7667F5] transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 text-[#949ba4] hover:text-white"
+              className="absolute right-2.5 text-[#858B98] hover:text-white"
             >
               <X size={13} />
             </button>
           )}
-        </div>
-      </div>
-
-      {/* Server Boost / Impulsos Row */}
-      <div className="px-2 pt-1 pb-1">
-        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#949ba4] hover:text-[#dbdee1] hover:bg-[#35373c]/50 cursor-pointer transition-colors">
-          <div className="flex items-center gap-2">
-            <Gem size={15} className="text-[#dbdee1]" />
-            <span className="font-semibold text-xs text-[#dbdee1]">Impulsos de servidor</span>
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider bg-[#5865f2] text-white px-1.5 py-0.5 rounded-full">
-            NOVO
-          </span>
         </div>
       </div>
 
@@ -303,21 +295,20 @@ function ServerHeader({
   const leaveServer = useLeaveServer()
 
   return (
-    <div className="flex items-center justify-between w-full px-4 h-13 pt-1 border-b border-[#1f2023]/40">
+    <div className="flex items-center justify-between w-full px-4 h-13 pt-1 border-b border-[#3C3F48]/40">
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
           <button
             className="flex items-center gap-1.5 flex-1 min-w-0 font-bold text-base hover:opacity-80 transition-opacity cursor-pointer text-left py-1 text-white"
           >
-            <span className="truncate font-bold tracking-tight text-[#f2f3f5]">{server.name}</span>
-            <ChevronRight size={16} className="shrink-0 text-[#949ba4]" />
+            <span className="truncate font-bold tracking-tight text-[#F2F3F5]">{server.name}</span>
+            <ChevronRight size={16} className="shrink-0 text-[#858B98]" />
           </button>
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Portal>
           <DropdownMenu.Content
-            className="min-w-56 rounded-xl p-1.5 shadow-2xl z-50 text-xs font-semibold"
-            style={{ background: '#111214', border: '1px solid #232428' }}
+            className="min-w-56 rounded-xl p-1.5 shadow-2xl z-50 text-xs font-semibold bg-[#2B2D33] border border-[#3C3F48]"
             sideOffset={4}
           >
             <MenuItem icon={<UserPlus size={14} />} label="Convidar pessoas" onClick={onOpenInvite} highlight />
@@ -340,18 +331,18 @@ function ServerHeader({
       </DropdownMenu.Root>
 
       {/* Top right header icons (Invite, Calendar) */}
-      <div className="flex items-center gap-1 shrink-0 text-[#dbdee1]">
+      <div className="flex items-center gap-1 shrink-0 text-[#B5BAC3]">
         <button
           onClick={onOpenInvite}
           title="Convidar pessoas"
-          className="p-1.5 rounded-full hover:bg-[#35373c] text-[#dbdee1] transition-colors cursor-pointer"
+          className="p-1.5 rounded-full hover:bg-[#3B3E47] text-[#B5BAC3] hover:text-white transition-colors cursor-pointer"
         >
           <UserPlus size={18} />
         </button>
         <button
           title="Eventos"
           onClick={onOpenSettings}
-          className="p-1.5 rounded-full hover:bg-[#35373c] text-[#dbdee1] transition-colors cursor-pointer"
+          className="p-1.5 rounded-full hover:bg-[#3B3E47] text-[#B5BAC3] hover:text-white transition-colors cursor-pointer"
         >
           <Calendar size={18} />
         </button>
@@ -379,7 +370,7 @@ function CategorySection({
   const createChannel = useCreateChannel()
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
-  const [newType, setNewType] = useState<'text' | 'voice'>('text')
+  const [newType, setNewType] = useState<'text' | 'voice' | 'polls'>('text')
 
   async function handleAddChannel(e: React.FormEvent) {
     e.preventDefault()
@@ -399,11 +390,12 @@ function CategorySection({
   return (
     <div className="pt-2">
       <button
-        className="group flex items-center gap-1 w-full px-1 py-1 text-[11px] font-bold uppercase tracking-wider text-[#949ba4] hover:text-[#dbdee1] cursor-pointer"
+        className="group flex items-center gap-1.5 w-full px-2 py-1.5 text-xs font-bold text-[#858B98] hover:text-[#F2F3F5] transition-colors cursor-pointer select-none"
         onClick={() => setCollapsed((c) => !c)}
       >
-        <ChevronDown size={12} className={`transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`} />
-        <span className="flex-1 text-left truncate">{category.name}</span>
+        <span className="text-left truncate">{category.name}</span>
+        <ChevronDown size={13} className={`transition-transform duration-150 text-[#858B98] ${collapsed ? '-rotate-90' : ''}`} />
+        <span className="flex-1" />
         {isOwner && (
           <span
             onClick={(e) => { e.stopPropagation(); setAdding(true) }}
@@ -422,6 +414,7 @@ function CategorySection({
               key={ch.id}
               channel={ch}
               serverId={serverId}
+              isOwner={isOwner}
               active={ch.id === channelId}
               membersMap={membersMap}
               onClick={() => navigate(`/app/servers/${serverId}/channels/${ch.id}`)}
@@ -450,11 +443,20 @@ function CategorySection({
                 >
                   <Volume2 size={12} /> Voz
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setNewType('polls')}
+                  className={`flex-1 py-1 rounded font-medium flex items-center justify-center gap-1 cursor-pointer ${
+                    newType === 'polls' ? 'bg-[#5865f2] text-white' : 'text-[#949ba4]'
+                  }`}
+                >
+                  <BarChart3 size={12} /> Enquetes
+                </button>
               </div>
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder={newType === 'voice' ? 'Geral de Voz' : 'novo-canal'}
+                placeholder={newType === 'voice' ? 'Geral de Voz' : newType === 'polls' ? 'enquetes' : 'novo-canal'}
                 autoFocus
                 className="w-full px-2 py-1 rounded text-xs outline-none bg-[#2b2d31] text-[#f2f3f5] border border-[#3f4248]"
               />
@@ -482,19 +484,23 @@ function CategorySection({
   )
 }
 
-interface VoiceTreeUser {
+export interface VoiceTreeUser {
   id: string
   name: string
   avatarUrl?: string | null
   isSpeaking: boolean
   isMuted: boolean
   isDeafened: boolean
+  /** Sharing their screen ("AO VIVO"). Camera alone does not count. */
   isScreenSharing: boolean
+  /** Live LiveKit track, only available while we are in the same call. */
+  screenTrack?: any
 }
 
 function ChannelRow({
   channel,
   serverId,
+  isOwner,
   active,
   membersMap,
   onClick,
@@ -502,19 +508,45 @@ function ChannelRow({
 }: {
   channel: Channel
   serverId: string
+  isOwner: boolean
   active: boolean
   membersMap: Record<string, { displayName: string; avatarUrl: string | null }>
   onClick: () => void
   onInvite: () => void
 }) {
-  const Icon = channel.type === 'voice' ? Volume2 : Hash
+  const navigate = useNavigate()
+  const { channelId: currentChannelId } = useParams()
+  const deleteChannel = useDeleteChannel()
+  const Icon = channel.type === 'voice' ? Volume2 : channel.type === 'polls' ? BarChart3 : Hash
+
+  async function handleDeleteChannel() {
+    if (!window.confirm(`Excluir o canal "${channel.name}"? Esta ação é irreversível.`)) return
+    try {
+      await deleteChannel.mutateAsync({ serverId, channelId: channel.id })
+      toast.success('Canal excluído')
+      if (currentChannelId === channel.id) navigate(`/app/servers/${serverId}`)
+    } catch (err) {
+      console.error('Failed to delete channel:', err)
+      toast.error('Falha ao excluir canal')
+    }
+  }
   const isVoice = channel.type === 'voice'
 
   const voiceStore = useVoiceStore()
   const { joinVoice } = useVoice()
   const { onlineUsers } = usePresence()
-  const unread = useMessagingStore((s) => s.unread[channel.id] || 0)
+  const isMuted = useFocusStore((s) => Boolean(s.muted[channel.id]))
+  // Focus mode: a silenced channel never shows an unread badge.
+  const unread = useMessagingStore((s) => (isMuted ? 0 : s.unread[channel.id] || 0))
   const registerChannel = useMessagingStore((s) => s.registerChannel)
+  const muteChannel = useFocusStore((s) => s.mute)
+  const unmuteChannel = useFocusStore((s) => s.unmute)
+
+  async function handleToggleMute() {
+    const ok = isMuted ? await unmuteChannel(channel.id) : await muteChannel(channel.id)
+    if (!ok) toast.error('Não foi possível alterar o modo foco')
+    else toast.success(isMuted ? 'Canal reativado' : 'Modo foco ativado: canal silenciado')
+  }
 
   useEffect(() => {
     registerChannel(channel.id, serverId)
@@ -539,9 +571,12 @@ function ChannelRow({
           name: memberInfo?.displayName || presenceInfo?.displayName || p.name || 'Usuário',
           avatarUrl: memberInfo?.avatarUrl ?? presenceInfo?.avatarUrl ?? null,
           isSpeaking: p.isSpeaking,
-          isMuted: p.isMuted,
-          isDeafened: p.isDeafened,
-          isScreenSharing: p.isScreenSharing || p.isVideoEnabled,
+          // LiveKit reaches remote peers through metadata; presence is the shared source of
+          // truth for everyone, so either one reporting "muted" must be reflected here.
+          isMuted: p.isMuted || Boolean(!p.isLocal && presenceInfo?.isMuted),
+          isDeafened: p.isDeafened || Boolean(!p.isLocal && presenceInfo?.isDeafened),
+          isScreenSharing: p.isScreenSharing || Boolean(presenceInfo?.isSharing),
+          screenTrack: p.screenTrack,
         }
       })
     } else {
@@ -561,7 +596,7 @@ function ChannelRow({
           isSpeaking: false,
           isMuted: u.isMuted ?? false,
           isDeafened: u.isDeafened ?? false,
-          isScreenSharing: false,
+          isScreenSharing: Boolean(u.isSharing),
         }
       })
     }
@@ -576,6 +611,12 @@ function ChannelRow({
     }
   }
 
+  // Clicking "AO VIVO": open the channel, join the call if needed and focus that live.
+  function handleWatchLive(userId: string) {
+    voiceStore.setFocusSharer(userId)
+    handleRowClick()
+  }
+
   return (
     <div className="space-y-0.5">
       <div
@@ -585,17 +626,19 @@ function ChannelRow({
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') handleRowClick()
         }}
-        className={`group flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg text-sm transition-colors text-left cursor-pointer select-none ${
+        className={`group relative flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg text-sm transition-colors text-left cursor-pointer select-none ${
+          isMuted && !active ? 'opacity-50 ' : ''
+        }${
           active
-            ? 'bg-[#35373c] text-white font-semibold shadow-xs'
+            ? 'bg-[#34363E] text-white font-semibold shadow-xs'
             : isVoice && (isCurrentVoiceActive || hasConnectedUsers)
-            ? 'text-[#dbdee1] hover:bg-[#35373c]/60'
-            : 'text-[#949ba4] hover:bg-[#35373c]/50 hover:text-[#dbdee1]'
+            ? 'text-[#F2F3F5] hover:bg-[#3B3E47]/60'
+            : 'text-[#858B98] hover:bg-[#3B3E47]/50 hover:text-[#F2F3F5]'
         }`}
       >
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {active && (
-            <span className="w-1 h-3 rounded-full bg-white shrink-0 -ml-1" />
+            <span className="w-1 h-3.5 rounded-full bg-white shrink-0 -ml-1" />
           )}
           <Icon
             size={18}
@@ -605,11 +648,11 @@ function ChannelRow({
                 : unread > 0
                 ? 'text-white'
                 : isVoice && (isCurrentVoiceActive || hasConnectedUsers)
-                ? 'text-[#23a55a]'
-                : 'text-[#80848e] group-hover:text-[#dbdee1]'
+                ? 'text-[#35C98A]'
+                : 'text-[#858B98] group-hover:text-[#F2F3F5]'
             }`}
           />
-          <span className={`truncate text-[13px] ${active ? 'text-white font-bold' : unread > 0 ? 'text-[#f2f3f5] font-bold' : 'text-[#dbdee1]'}`}>
+          <span className={`truncate text-[13px] ${active ? 'text-white font-bold' : unread > 0 ? 'text-[#F2F3F5] font-bold' : 'text-[#B5BAC3]'}`}>
             {channel.name}
           </span>
         </div>
@@ -618,21 +661,44 @@ function ChannelRow({
         {isVoice && (
           <div className="flex items-center gap-1.5 shrink-0">
             {voiceUsers.length > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#111214] text-[#949ba4] border border-[#2b2d31]">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#1B1C20] text-[#858B98] border border-[#3C3F48]">
                 {String(voiceUsers.length).padStart(2, '0')} 99
               </span>
             )}
           </div>
         )}
 
-        {/* Unread badge */}
+        {/* Unread badge (hidden, not removed, on hover so the row never changes size) */}
         {unread > 0 && !active && (
-          <span className="min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-[#f23f43] text-white shrink-0 flex items-center justify-center shadow animate-in fade-in zoom-in duration-150">
+          <span className="min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-[#F04747] text-white shrink-0 flex items-center justify-center shadow animate-in fade-in zoom-in duration-150 group-hover:invisible group-focus-within:invisible">
             {unread > 99 ? '99+' : unread}
           </span>
         )}
 
-        <div className="hidden group-hover:flex items-center gap-1">
+        {isMuted && (
+          <BellOff
+            size={13}
+            className="text-[#858B98] shrink-0 group-hover:invisible group-focus-within:invisible"
+            aria-label="Canal silenciado"
+          />
+        )}
+
+        {/* Row actions float over the right edge: showing them must not resize the row. */}
+        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 hidden group-hover:flex group-focus-within:flex items-center gap-0.5 rounded-md bg-[#2B2D33] px-0.5 shadow-sm">
+          {channel.type === 'text' && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                void handleToggleMute()
+              }}
+              className="p-1 rounded text-[#949ba4] hover:text-[#f2f3f5] hover:bg-[#2b2d31] transition-colors cursor-pointer"
+              title={isMuted ? 'Reativar notificações do canal' : 'Silenciar canal (modo foco)'}
+              aria-label={isMuted ? 'Reativar notificações do canal' : 'Silenciar canal (modo foco)'}
+            >
+              {isMuted ? <BellRing size={14} /> : <BellOff size={14} />}
+            </button>
+          )}
           <button
             type="button"
             onClick={(e) => {
@@ -644,6 +710,19 @@ function ChannelRow({
           >
             <UserPlus size={14} />
           </button>
+          {isOwner && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDeleteChannel()
+              }}
+              className="p-1 rounded text-[#949ba4] hover:text-[#F04747] hover:bg-[#2b2d31] transition-colors cursor-pointer"
+              title="Excluir canal"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -651,7 +730,12 @@ function ChannelRow({
       {isVoice && hasConnectedUsers && (
         <div className="pl-6 pr-1 py-1 space-y-1">
           {voiceUsers.map((user) => (
-            <VoiceParticipantTreeItem key={user.id} user={user} />
+            <VoiceParticipantTreeItem
+              key={user.id}
+              user={user}
+              inCall={isCurrentVoiceActive}
+              onWatchLive={() => handleWatchLive(user.id)}
+            />
           ))}
         </div>
       )}
@@ -659,15 +743,80 @@ function ChannelRow({
   )
 }
 
-function VoiceParticipantTreeItem({ user }: { user: VoiceTreeUser }) {
+/** Small live preview shown on hover; the real video exists only while we are in the call. */
+function LivePreviewCard({
+  user,
+  track,
+  inCall,
+  anchor,
+}: {
+  user: VoiceTreeUser
+  track?: any
+  inCall: boolean
+  anchor: { top: number; left: number }
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el || !track) return
+    track.attach(el)
+    return () => {
+      track.detach(el)
+    }
+  }, [track])
+
+  return createPortal(
+    <div
+      role="tooltip"
+      style={{ top: anchor.top, left: anchor.left }}
+      className="fixed z-[100] w-56 -translate-y-1/2 rounded-lg overflow-hidden bg-[#111214] border border-[#3C3F48]/70 shadow-2xl pointer-events-none"
+    >
+      <div className="aspect-video bg-black flex items-center justify-center">
+        {track ? (
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-contain" />
+        ) : (
+          <span className="px-3 text-center text-[11px] text-[#B5BAC3]">
+            Entre na chamada para assistir
+          </span>
+        )}
+      </div>
+      <div className="px-2.5 py-1.5 flex items-center gap-1.5">
+        <span className="px-1 py-px text-[9px] font-black uppercase rounded bg-[#F04747] text-white">AO VIVO</span>
+        <span className="text-[11px] font-semibold text-[#F2F3F5] truncate">{user.name}</span>
+      </div>
+      {!inCall && (
+        <p className="px-2.5 pb-1.5 text-[10px] text-[#858B98]">Clique em AO VIVO para entrar e assistir</p>
+      )}
+    </div>,
+    document.body
+  )
+}
+
+export function VoiceParticipantTreeItem({
+  user,
+  inCall,
+  onWatchLive,
+}: {
+  user: VoiceTreeUser
+  inCall: boolean
+  onWatchLive: () => void
+}) {
+  const [previewAnchor, setPreviewAnchor] = useState<{ top: number; left: number } | null>(null)
+
+  function showPreview(e: React.SyntheticEvent<HTMLElement>) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setPreviewAnchor({ top: rect.top + rect.height / 2, left: rect.right + 10 })
+  }
+
   return (
-    <div className="group flex items-center justify-between px-2 py-1 rounded-md hover:bg-[#35373c]/50 transition-colors cursor-pointer select-none">
+    <div className="group flex items-center justify-between px-2 py-1 rounded-md hover:bg-[#3B3E47]/50 transition-colors cursor-pointer select-none">
       <div className="flex items-center gap-2 min-w-0 flex-1">
         {/* Avatar with speaking ring */}
         <div className="relative shrink-0">
           <Avatar.Root
-            className={`w-6 h-6 rounded-full overflow-hidden block bg-[#2b2d31] transition-all ${
-              user.isSpeaking && !user.isMuted && !user.isDeafened ? 'ring-2 ring-[#23a55a]' : ''
+            className={`w-6 h-6 rounded-full overflow-hidden block bg-[#2B2D33] transition-all ${
+              user.isSpeaking && !user.isMuted && !user.isDeafened ? 'ring-2 ring-[#35C98A]' : ''
             }`}
           >
             <Avatar.Image
@@ -675,7 +824,7 @@ function VoiceParticipantTreeItem({ user }: { user: VoiceTreeUser }) {
               alt={user.name}
               className="w-full h-full object-cover"
             />
-            <Avatar.Fallback className="w-full h-full flex items-center justify-center text-[10px] font-semibold text-white bg-[#5865f2]">
+            <Avatar.Fallback className="w-full h-full flex items-center justify-center text-[10px] font-semibold text-white bg-[#7667F5]">
               {user.name[0]?.toUpperCase()}
             </Avatar.Fallback>
           </Avatar.Root>
@@ -685,8 +834,8 @@ function VoiceParticipantTreeItem({ user }: { user: VoiceTreeUser }) {
         <span
           className={`text-xs truncate transition-colors ${
             user.isSpeaking && !user.isMuted && !user.isDeafened
-              ? 'text-[#23a55a] font-semibold'
-              : 'text-[#dbdee1] group-hover:text-white'
+              ? 'text-[#35C98A] font-semibold'
+              : 'text-[#B5BAC3] group-hover:text-white'
           }`}
         >
           {user.name}
@@ -694,19 +843,33 @@ function VoiceParticipantTreeItem({ user }: { user: VoiceTreeUser }) {
       </div>
 
       {/* Right icons: muted, deafened, screen sharing */}
-      <div className="flex items-center gap-1.5 shrink-0 text-[#949ba4]">
+      <div className="flex items-center gap-1.5 shrink-0 text-[#858B98]">
         {user.isScreenSharing && (
-          <span className="px-1.5 py-0.5 text-[9px] font-black uppercase rounded bg-[#f23f43] text-white tracking-wide shadow-xs">
-            AO VIVO
-          </span>
+          <>
+            <button
+              type="button"
+              onClick={onWatchLive}
+              onMouseEnter={showPreview}
+              onMouseLeave={() => setPreviewAnchor(null)}
+              onFocus={showPreview}
+              onBlur={() => setPreviewAnchor(null)}
+              aria-label={`Assistir a live de ${user.name}`}
+              className="px-1.5 py-0.5 text-[9px] font-black uppercase rounded bg-[#F04747] hover:bg-[#D83C3C] text-white tracking-wide shadow-xs cursor-pointer transition-colors"
+            >
+              AO VIVO
+            </button>
+            {previewAnchor && (
+              <LivePreviewCard user={user} track={user.screenTrack} inCall={inCall} anchor={previewAnchor} />
+            )}
+          </>
         )}
         {user.isMuted && (
-          <span title="Mutado" className="text-[#949ba4]">
+          <span title="Mutado" className="text-[#858B98]">
             <MicOff size={14} />
           </span>
         )}
         {user.isDeafened && (
-          <span title="Ensurdecido" className="text-[#f23f43]">
+          <span title="Ensurdecido" className="text-[#F04747]">
             <Headphones size={14} />
           </span>
         )}
@@ -761,24 +924,39 @@ function InviteModal({
   const createInvite = useCreateInvite()
   const [code, setCode] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function generate() {
+    setError(null)
+    createInvite.mutateAsync({ serverId }).then((invite) => {
+      setCode(invite.code)
+    }).catch((err: { status?: number }) => {
+      console.error('Falha ao gerar convite', err)
+      setError(
+        err?.status === 403
+          ? 'Você não tem permissão para criar convites neste servidor. Peça ao dono ou a um administrador.'
+          : 'Não foi possível gerar o link de convite. Tente novamente.'
+      )
+    })
+  }
 
   useEffect(() => {
-    if (open && !code && !createInvite.isPending) {
-      createInvite.mutateAsync({ serverId }).then((invite) => {
-        setCode(invite.code)
-      }).catch((err) => {
-        console.error('Falha ao gerar convite', err)
-      })
-    }
+    if (open && !code && !createInvite.isPending) generate()
     if (!open) {
       setCode(null)
       setCopied(false)
+      setError(null)
     }
   }, [open, serverId])
 
-  function copyLink() {
+  async function copyLink() {
     if (!code) return
-    navigator.clipboard.writeText(`${window.location.origin}/invite/${code}`)
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/invite/${code}`)
+    } catch {
+      toast.error('Não foi possível copiar', 'Selecione o link e copie manualmente.')
+      return
+    }
     setCopied(true)
     toast.success('Link de convite copiado!', 'Cole no chat ou envie para seus amigos.')
     setTimeout(() => setCopied(false), 2000)
@@ -816,6 +994,7 @@ function InviteModal({
               <input
                 readOnly
                 value={code ? `${window.location.origin}/invite/${code}` : (createInvite.isPending ? 'Gerando link...' : '')}
+                onFocus={(e) => e.currentTarget.select()}
                 className="flex-1 px-3 py-2 rounded bg-[#1e1f22] text-[#f2f3f5] text-xs font-mono outline-none border border-[#1e1f22] focus:border-[#5865f2]"
               />
               <button
@@ -828,9 +1007,23 @@ function InviteModal({
                 {copied ? 'Copiado!' : 'Copiar'}
               </button>
             </div>
-            <p className="text-[11px] text-[#949ba4] pt-1">
-              Seu link de convite nunca expira e pode ser compartilhado livremente.
-            </p>
+            {error ? (
+              <div role="alert" className="pt-1 space-y-2">
+                <p className="text-[11px] text-[#f04747]">{error}</p>
+                <button
+                  type="button"
+                  onClick={generate}
+                  disabled={createInvite.isPending}
+                  className="text-[11px] font-semibold text-[#00a8fc] hover:underline cursor-pointer disabled:opacity-50"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            ) : (
+              <p className="text-[11px] text-[#949ba4] pt-1">
+                Seu link de convite nunca expira e pode ser compartilhado livremente.
+              </p>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

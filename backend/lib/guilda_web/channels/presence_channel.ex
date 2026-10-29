@@ -81,8 +81,10 @@ defmodule GuildaWeb.PresenceChannel do
   def handle_in("update_voice_channel", payload, socket) do
     user = socket.assigns.current_user
     voice_channel_id = Map.get(payload, "voice_channel_id")
-    is_muted = Map.get(payload, "is_muted", false)
-    is_deafened = Map.get(payload, "is_deafened", false)
+    is_muted = Map.get(payload, "is_muted", false) == true
+    is_deafened = Map.get(payload, "is_deafened", false) == true
+    # Only meaningful while the user is actually inside a voice channel.
+    is_sharing = Map.get(payload, "is_sharing", false) == true and not is_nil(voice_channel_id)
 
     cond do
       Presence.get_by_key(socket, user.id) == nil ->
@@ -94,6 +96,7 @@ defmodule GuildaWeb.PresenceChannel do
           voice_channel_id: voice_channel_id,
           voice_muted: is_muted,
           voice_deafened: is_deafened,
+          voice_sharing: is_sharing,
           online_at: System.system_time(:second)
         })
 
@@ -103,6 +106,7 @@ defmodule GuildaWeb.PresenceChannel do
           |> Map.put(:voice_channel_id, voice_channel_id)
           |> Map.put(:voice_muted, is_muted)
           |> Map.put(:voice_deafened, is_deafened)
+          |> Map.put(:voice_sharing, is_sharing)
         end)
     end
 

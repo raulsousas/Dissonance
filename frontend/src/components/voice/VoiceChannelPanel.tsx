@@ -26,6 +26,7 @@ import { useVoice } from '@/hooks/useVoice'
 import { usePresence } from '@/hooks/usePresence'
 import { useServerDetail } from '@/hooks/useServers'
 import { useUIStore } from '@/stores/uiStore'
+import { useVoiceStore } from '@/stores/voiceStore'
 import { ParticipantTile } from '@/components/voice/ParticipantTile'
 import { ScreenShareAnnotation } from '@/components/voice/ScreenShareAnnotation'
 
@@ -86,9 +87,24 @@ export function VoiceChannelPanel({ channelId, serverId, channelName }: Props) {
   // Multi-stream focus selection
   const [selectedSharerId, setSelectedSharerId] = useState<string | null>(null)
 
+  // A live clicked in the sidebar ("AO VIVO"): focus it once, then clear the request.
+  const focusSharerId = useVoiceStore((s) => s.focusSharerId)
+  const setFocusSharer = useVoiceStore((s) => s.setFocusSharer)
+
   const panelRef = useRef<HTMLDivElement>(null)
 
   const allScreenSharers = participants.filter((p) => p.screenTrack)
+
+  useEffect(() => {
+    if (!focusSharerId) return
+    // Wait until the stream has arrived; if the sharer stopped, drop the request.
+    if (participants.some((p) => p.identity === focusSharerId && p.screenTrack)) {
+      setSelectedSharerId(focusSharerId)
+      setFocusSharer(null)
+    } else if (inThisChannel && isConnected && !participants.some((p) => p.identity === focusSharerId)) {
+      setFocusSharer(null)
+    }
+  }, [focusSharerId, participants, inThisChannel, isConnected, setFocusSharer])
 
   // Determine active focused screen sharer
   const activeSharer =
@@ -551,7 +567,7 @@ export function VoiceChannelPanel({ channelId, serverId, channelName }: Props) {
             onClick={toggleScreenShare}
             className="p-3 rounded-full hover:opacity-90 transition-all shadow cursor-pointer"
             style={{
-              background: isScreenSharing ? 'var(--color-online)' : 'var(--color-bg-primary)',
+              background: isScreenSharing ? 'var(--color-danger)' : 'var(--color-bg-primary)',
               color: isScreenSharing ? '#fff' : 'var(--color-text-primary)',
             }}
             title={isScreenSharing ? 'Parar Compartilhamento' : 'Compartilhar Tela'}

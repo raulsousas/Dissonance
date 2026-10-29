@@ -68,7 +68,6 @@ export default function ServerSidebar({ selectedServerId }: Props) {
       <ActionButton
         label="Explore Discoverable Servers"
         icon={<Compass size={20} />}
-        hoverColor="var(--color-online)"
       />
     </nav>
   )
@@ -101,15 +100,15 @@ function HomePillButton({
         aria-label="Mensagens diretas"
         className={`relative w-12 h-12 flex items-center justify-center transition-all duration-200 cursor-pointer ${
           active
-            ? 'rounded-2xl bg-[#5865f2] text-white shadow-md'
-            : 'rounded-[24px] bg-[#313338] text-[#dbdee1] hover:rounded-2xl hover:bg-[#5865f2] hover:text-white'
+            ? 'rounded-2xl bg-[#7667F5] text-white shadow-md'
+            : 'rounded-[24px] bg-[#2B2D33] text-[#B5BAC3] hover:rounded-2xl hover:bg-[#7667F5] hover:text-white'
         }`}
       >
-        <MessageSquare size={22} className={active ? 'fill-current text-white' : 'fill-[#dbdee1]/40 text-[#dbdee1]'} />
+        <MessageSquare size={22} className={active ? 'fill-current text-white' : 'fill-[#B5BAC3]/40 text-[#B5BAC3]'} />
 
         {/* Unread notification badge bubble */}
         {badgeCount > 0 && (
-          <span className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#f23f43] text-white text-[11px] font-bold flex items-center justify-center border-2 border-[#111214] shadow animate-in fade-in zoom-in duration-150">
+          <span className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#F04747] text-white text-[11px] font-bold flex items-center justify-center border-2 border-[#1B1C20] shadow animate-in fade-in zoom-in duration-150">
             {badgeCount > 99 ? '99+' : badgeCount}
           </span>
         )}
@@ -148,20 +147,20 @@ function ServerIcon({
         aria-current={active ? 'page' : undefined}
         className={`relative w-12 h-12 flex items-center justify-center transition-all duration-200 cursor-pointer overflow-visible ${
           active
-            ? 'rounded-2xl bg-[#5865f2] text-white shadow-md'
-            : 'rounded-[24px] bg-[#313338] text-[#dbdee1] hover:rounded-2xl hover:bg-[#5865f2] hover:text-white'
+            ? 'rounded-2xl bg-[#7667F5] text-white shadow-md'
+            : 'rounded-[24px] bg-[#2B2D33] text-[#B5BAC3] hover:rounded-2xl hover:bg-[#7667F5] hover:text-white'
         }`}
       >
-        <Avatar.Root className="w-full h-full rounded-[inherit] overflow-hidden flex items-center justify-center">
+        <Avatar.Root className="w-full h-full rounded-[inherit] overflow-hidden flex items-center justify-center bg-transparent">
           <Avatar.Image src={server.iconUrl ?? undefined} alt={server.name} className="w-full h-full object-cover" />
-          <Avatar.Fallback className="text-sm font-semibold tracking-wide">
+          <Avatar.Fallback className="w-full h-full flex items-center justify-center text-sm font-bold tracking-wide text-current bg-transparent select-none">
             {server.name.split(' ').map(w => w[0]).slice(0, 3).join('').toUpperCase()}
           </Avatar.Fallback>
         </Avatar.Root>
 
         {/* Unread notification badge bubble */}
         {unreadCount > 0 && !active && (
-          <span className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#f23f43] text-white text-[11px] font-bold flex items-center justify-center border-2 border-[#1e1f22] shadow animate-in fade-in zoom-in duration-150">
+          <span className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#F04747] text-white text-[11px] font-bold flex items-center justify-center border-2 border-[#1B1C20] shadow animate-in fade-in zoom-in duration-150">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -170,15 +169,14 @@ function ServerIcon({
   )
 }
 
-function ActionButton({ label, icon, hoverColor }: { label: string; icon: React.ReactNode; hoverColor: string }) {
+function ActionButton({ label, icon }: { label: string; icon: React.ReactNode }) {
   return (
     <div className="relative group flex items-center justify-center w-full">
       <span className="absolute left-0 w-1 bg-white rounded-r transition-all duration-200 h-2 opacity-0 group-hover:opacity-100 group-hover:h-5" />
       <button
         title={label}
         aria-label={label}
-        className="w-12 h-12 rounded-[24px] bg-[#313338] text-[#23a55a] flex items-center justify-center transition-all duration-200 hover:rounded-2xl hover:bg-[#23a55a] hover:text-white cursor-pointer"
-        style={{ color: hoverColor }}
+        className="w-12 h-12 rounded-[24px] bg-[#2B2D33] text-[#35C98A] flex items-center justify-center transition-all duration-200 hover:rounded-2xl hover:bg-[#35C98A] hover:text-white cursor-pointer"
       >
         {icon}
       </button>
@@ -198,7 +196,7 @@ function AddServerButton() {
           <button
             title="Add a server"
             aria-label="Add a server"
-            className="w-12 h-12 rounded-[24px] bg-[#313338] text-[#23a55a] flex items-center justify-center transition-all duration-200 hover:rounded-2xl hover:bg-[#23a55a] hover:text-white cursor-pointer"
+            className="w-12 h-12 rounded-[24px] bg-[#2B2D33] text-[#35C98A] flex items-center justify-center transition-all duration-200 hover:rounded-2xl hover:bg-[#35C98A] hover:text-white cursor-pointer"
           >
             <Plus size={22} />
           </button>
@@ -206,10 +204,9 @@ function AddServerButton() {
       </Dialog.Trigger>
 
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.7)' }} />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/70 backdrop-blur-xs" />
         <Dialog.Content
-          className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-lg p-6 shadow-2xl"
-          style={{ background: 'var(--color-bg-tertiary)' }}
+          className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-xl p-6 shadow-2xl bg-[#2B2D33] border border-[#3C3F48] text-[#F2F3F5] outline-none"
         >
           {mode === 'choose' && <ChooseMode onCreate={() => setMode('create')} onJoin={() => setMode('join')} />}
           {mode === 'create' && <CreateServerForm onDone={() => setOpen(false)} />}
@@ -223,27 +220,25 @@ function AddServerButton() {
 function ChooseMode({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
   return (
     <div className="text-center">
-      <Dialog.Title className="text-xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-        Add a Server
+      <Dialog.Title className="text-xl font-bold mb-1 text-[#F2F3F5]">
+        Criar um Servidor
       </Dialog.Title>
-      <p className="text-sm mb-6" style={{ color: 'var(--color-text-muted)' }}>
-        Create your own or join an existing one with an invite.
+      <p className="text-sm mb-6 text-[#858B98]">
+        Crie seu próprio servidor ou junte-se a um já existente com um convite.
       </p>
       <div className="flex flex-col gap-3">
         <button
           onClick={onCreate}
-          className="w-full py-3 rounded-md font-semibold text-sm transition-opacity hover:opacity-90"
-          style={{ background: 'var(--color-accent)', color: '#fff' }}
+          className="w-full py-3 rounded-lg font-semibold text-sm transition-all bg-[#7667F5] hover:bg-[#6857ea] text-white cursor-pointer shadow-md"
         >
-          Create a Server
+          Criar meu Servidor
         </button>
         <button
           onClick={onJoin}
-          className="w-full py-3 rounded-md font-semibold text-sm border transition-opacity hover:opacity-90"
-          style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+          className="w-full py-3 rounded-lg font-semibold text-sm border border-[#3C3F48] bg-[#1B1C20] text-[#F2F3F5] hover:bg-[#3B3E47] transition-all cursor-pointer"
         >
-          <Compass size={14} className="inline mr-2" />
-          Join with an Invite
+          <Compass size={16} className="inline mr-2 text-[#35C98A]" />
+          Entrar com um Convite
         </button>
       </div>
     </div>
@@ -270,32 +265,30 @@ function CreateServerForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <Dialog.Title className="text-xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-        Create a Server
+      <Dialog.Title className="text-xl font-bold mb-1 text-[#F2F3F5]">
+        Criar Servidor
       </Dialog.Title>
-      <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-        Give your server a name. You can always change it later.
+      <p className="text-sm mb-4 text-[#858B98]">
+        Dê um nome ao seu servidor. Você pode alterá-lo quando quiser.
       </p>
-      <label className="block text-xs font-semibold uppercase mb-1" style={{ color: 'var(--color-text-muted)' }}>
-        Server Name
+      <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 text-[#858B98]">
+        Nome do Servidor
       </label>
       <input
         value={name}
         onChange={(e) => { setName(e.target.value); setError('') }}
-        placeholder="My Awesome Server"
-        className="w-full px-3 py-2 rounded-md text-sm outline-none mb-1"
-        style={{ background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+        placeholder="Servidor Incrível"
+        className="w-full px-3 py-2 rounded-lg text-sm outline-none mb-1 bg-[#1B1C20] text-[#F2F3F5] border border-[#3C3F48] focus:border-[#7667F5] transition-all"
         autoFocus
         maxLength={100}
       />
-      {error && <p className="text-xs mb-3" style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <p className="text-xs mb-3 text-[#F04747] font-semibold">{error}</p>}
       <button
         type="submit"
         disabled={createServer.isPending}
-        className="w-full mt-4 py-2 rounded-md font-semibold text-sm transition-opacity hover:opacity-90 disabled:opacity-50"
-        style={{ background: 'var(--color-accent)', color: '#fff' }}
+        className="w-full mt-4 py-2.5 rounded-lg font-semibold text-sm transition-all bg-[#7667F5] hover:bg-[#6857ea] text-white disabled:opacity-50 cursor-pointer shadow-md"
       >
-        {createServer.isPending ? 'Creating…' : 'Create Server'}
+        {createServer.isPending ? 'Criando…' : 'Criar Servidor'}
       </button>
     </form>
   )
@@ -322,31 +315,29 @@ function JoinServerForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <Dialog.Title className="text-xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-        Join a Server
+      <Dialog.Title className="text-xl font-bold mb-1 text-[#F2F3F5]">
+        Entrar em um Servidor
       </Dialog.Title>
-      <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-        Enter an invite code or link.
+      <p className="text-sm mb-4 text-[#858B98]">
+        Insira o link ou código de convite.
       </p>
-      <label className="block text-xs font-semibold uppercase mb-1" style={{ color: 'var(--color-text-muted)' }}>
-        Invite Code or Link
+      <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 text-[#858B98]">
+        Código ou Link de Convite
       </label>
       <input
         value={code}
         onChange={(e) => { setCode(e.target.value); setError('') }}
         placeholder="https://guilda.app/invite/aBcDeF"
-        className="w-full px-3 py-2 rounded-md text-sm outline-none mb-1"
-        style={{ background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+        className="w-full px-3 py-2 rounded-lg text-sm outline-none mb-1 bg-[#1B1C20] text-[#F2F3F5] border border-[#3C3F48] focus:border-[#7667F5] transition-all"
         autoFocus
       />
-      {error && <p className="text-xs mb-2" style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <p className="text-xs mb-2 text-[#F04747] font-semibold">{error}</p>}
       <button
         type="submit"
         disabled={join.isPending}
-        className="w-full mt-4 py-2 rounded-md font-semibold text-sm transition-opacity hover:opacity-90 disabled:opacity-50"
-        style={{ background: 'var(--color-accent)', color: '#fff' }}
+        className="w-full mt-4 py-2.5 rounded-lg font-semibold text-sm transition-all bg-[#7667F5] hover:bg-[#6857ea] text-white disabled:opacity-50 cursor-pointer shadow-md"
       >
-        {join.isPending ? 'Joining…' : 'Join Server'}
+        {join.isPending ? 'Entrando…' : 'Entrar no Servidor'}
       </button>
     </form>
   )

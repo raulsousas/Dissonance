@@ -75,6 +75,11 @@ defmodule GuildaWeb.ChannelChannel do
   # ---------------------------------------------------------------------------
 
   @impl true
+  def handle_in("new_message", _payload, %{assigns: %{channel: %{type: "polls"}}} = socket) do
+    # A polls channel only lists polls; it has no chat.
+    {:reply, {:error, %{reason: "channel_does_not_accept_messages"}}, socket}
+  end
+
   def handle_in("new_message", payload, socket) do
     user = socket.assigns.current_user
     membership = socket.assigns.membership
@@ -107,12 +112,14 @@ defmodule GuildaWeb.ChannelChannel do
           server_id = server.id
           author_id = user.id
 
+          # Users in focus mode (channel silenced) are not notified.
           member_user_ids =
             Guilda.Repo.all(
               from sm in Guilda.Servers.ServerMember,
                 where: sm.server_id == ^server_id and sm.user_id != ^author_id,
                 select: sm.user_id
             )
+            |> Guilda.FocusMode.reject_muted(channel_id)
 
           Enum.each(member_user_ids, fn member_id ->
             GuildaWeb.Endpoint.broadcast("user:#{member_id}", "new_server_message", %{
@@ -146,7 +153,7 @@ defmodule GuildaWeb.ChannelChannel do
         {:reply, {:error, %{reason: "not_found"}}, socket}
 
       msg ->
-        if msg.author_id != user.id do
+        if msg.author_id != user.id or msg.kind != "user" do
           {:reply, {:error, %{reason: "not_author"}}, socket}
         else
           case Messaging.edit_message(msg, %{content: content}) do
@@ -364,6 +371,7 @@ defmodule GuildaWeb.ChannelChannel do
       editedAt: msg.edited_at,
       deleted: msg.deleted,
       pinned: msg.pinned || false,
+      kind: msg.kind || "user",
       reactions: serialize_reactions(msg.reactions),
       attachments: attachments,
       insertedAt: msg.inserted_at
