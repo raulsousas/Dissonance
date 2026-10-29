@@ -1,6 +1,6 @@
 import { createContext, useContext, ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { updateGlobalStatus } from '@/stores/presenceStore'
+import { updateGlobalStatus, updateGlobalProfile } from '@/stores/presenceStore'
 
 export interface CurrentUser {
   id: string
@@ -86,6 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateGlobalStatus(fields.status, currentUser.id)
     }
 
+    if ((fields.displayName !== undefined || fields.avatarUrl !== undefined) && currentUser?.id) {
+      updateGlobalProfile(fields.displayName ?? currentUser.displayName, fields.avatarUrl !== undefined ? fields.avatarUrl : currentUser.avatarUrl)
+    }
+
     try {
       await fetch('/api/me', {
         method: 'PATCH',
@@ -97,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }),
         credentials: 'include',
       })
+      queryClient.invalidateQueries({ queryKey: ['server'] })
     } catch (err) {
       console.error('Failed to update user profile:', err)
     }

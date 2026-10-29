@@ -78,8 +78,11 @@ defmodule GuildaWeb.PresenceChannel do
   end
 
   @impl true
-  def handle_in("update_voice_channel", %{"voice_channel_id" => voice_channel_id}, socket) do
+  def handle_in("update_voice_channel", payload, socket) do
     user = socket.assigns.current_user
+    voice_channel_id = Map.get(payload, "voice_channel_id")
+    is_muted = Map.get(payload, "is_muted", false)
+    is_deafened = Map.get(payload, "is_deafened", false)
 
     cond do
       Presence.get_by_key(socket, user.id) == nil ->
@@ -89,12 +92,45 @@ defmodule GuildaWeb.PresenceChannel do
           avatar_url: user.avatar_url,
           status: user.status || "online",
           voice_channel_id: voice_channel_id,
+          voice_muted: is_muted,
+          voice_deafened: is_deafened,
           online_at: System.system_time(:second)
         })
 
       true ->
         Presence.update(socket, user.id, fn meta ->
-          Map.put(meta, :voice_channel_id, voice_channel_id)
+          meta
+          |> Map.put(:voice_channel_id, voice_channel_id)
+          |> Map.put(:voice_muted, is_muted)
+          |> Map.put(:voice_deafened, is_deafened)
+        end)
+    end
+
+    {:reply, :ok, socket}
+  end
+
+  @impl true
+  def handle_in("update_profile", payload, socket) do
+    user = socket.assigns.current_user
+    display_name = Map.get(payload, "display_name") || Map.get(payload, "displayName") || user.display_name
+    avatar_url = Map.get(payload, "avatar_url") || Map.get(payload, "avatarUrl")
+
+    cond do
+      Presence.get_by_key(socket, user.id) == nil ->
+        Presence.track(socket, user.id, %{
+          user_id: user.id,
+          display_name: display_name,
+          avatar_url: avatar_url,
+          status: user.status || "online",
+          voice_channel_id: nil,
+          online_at: System.system_time(:second)
+        })
+
+      true ->
+        Presence.update(socket, user.id, fn meta ->
+          meta
+          |> Map.put(:display_name, display_name)
+          |> Map.put(:avatar_url, avatar_url)
         end)
     end
 

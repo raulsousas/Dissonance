@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { SendHorizonal, X, FileText, Hash, Volume2, AtSign, Users } from 'lucide-react'
+import { SendHorizonal, X, FileText, Hash, Volume2, Users, Plus } from 'lucide-react'
 import type { Message, Attachment } from '@/stores/messagingStore'
 import { EmojiPicker } from './EmojiPicker'
 import { GifPicker } from './GifPicker'
@@ -284,7 +284,7 @@ export function MessageInput({
                       <div className="w-6 h-6 rounded-full bg-[#f0b232]/20 text-[#f0b232] flex items-center justify-center font-bold text-xs shrink-0">
                         <Users size={13} />
                       </div>
-                    ) : item.avatarUrl ? (
+                    ) : 'avatarUrl' in item && item.avatarUrl ? (
                       <img src={item.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-[#5865f2] text-white flex items-center justify-center font-semibold text-xs shrink-0">
@@ -391,7 +391,7 @@ export function MessageInput({
           title="Adicionar arquivo ou imagem"
           aria-label="Attach file"
         >
-          <span className="text-base font-bold leading-none">+</span>
+          <Plus size={14} className="stroke-[3] text-[#2b2d31] shrink-0" />
         </button>
 
         <textarea

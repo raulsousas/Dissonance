@@ -2,8 +2,9 @@ import { useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import * as Avatar from '@radix-ui/react-avatar'
 import * as Popover from '@radix-ui/react-popover'
-import { Pin, Search, X } from 'lucide-react'
+import { Pin, Search, X, Menu } from 'lucide-react'
 import FriendsPage from '@/pages/FriendsPage'
+import { useUIStore } from '@/stores/uiStore'
 import { useConversation } from '@/hooks/useConversations'
 import { useDmChannel } from '@/hooks/useDmChannel'
 import { usePresence } from '@/hooks/usePresence'
@@ -76,10 +77,17 @@ function DmChatView({ conversationId }: { conversationId: string }) {
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--color-bg-tertiary)' }}>
       {/* DM Chat Header */}
       <header
-        className="h-12 px-4 flex items-center justify-between border-b shrink-0 select-none shadow-sm"
+        className="h-12 px-3 sm:px-4 flex items-center justify-between border-b shrink-0 select-none shadow-sm"
         style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-secondary)' }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={useUIStore.getState().openMobileNav}
+            className="p-1 -ml-1 text-[#949ba4] hover:text-[#f2f3f5] md:hidden cursor-pointer shrink-0"
+            title="Abrir menu"
+          >
+            <Menu size={20} />
+          </button>
           <div className="relative shrink-0">
             <Avatar.Root className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-gray-600">
               <Avatar.Image src={recipient?.avatarUrl ?? undefined} alt={recipientName} className="w-full h-full object-cover" />

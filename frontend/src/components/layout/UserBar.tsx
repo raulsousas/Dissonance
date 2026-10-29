@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Mic, MicOff, Headphones, Settings, Smile, Check, Shield } from 'lucide-react'
+import { Mic, MicOff, Headphones, Settings, Smile, Check, ChevronDown, Bell } from 'lucide-react'
 import { useAuth, type CurrentUser } from '@/hooks/useAuth'
 import { useVoice } from '@/hooks/useVoice'
 import { getStatusLabel, getStatusColor } from '@/stores/presenceStore'
+import { useMessagingStore } from '@/stores/messagingStore'
 import * as Avatar from '@radix-ui/react-avatar'
 import * as Popover from '@radix-ui/react-popover'
 import { UserSettingsModal } from '@/components/modals/UserSettingsModal'
@@ -81,45 +82,50 @@ export default function UserBar() {
     }
   }
 
+  const unreadMap = useMessagingStore((s) => s.unread)
+  const totalUnread = Object.values(unreadMap).reduce((acc, c) => acc + c, 0)
+
   return (
     <div
-      className="shrink-0 h-[52px] px-2 flex items-center justify-between border-t select-none"
-      style={{ background: '#232428', borderColor: 'var(--color-border)' }}
+      className="shrink-0 h-[56px] px-3 flex items-center justify-between border-t select-none bg-[#111214] border-[#1f2023]"
     >
       {/* Avatar + name with Discord status menu */}
       <Popover.Root open={popoverOpen} onOpenChange={setPopoverOpen}>
         <Popover.Trigger asChild>
           <button
             title="Menu do Usuário"
-            className="flex items-center gap-2 flex-1 min-w-0 p-1 -ml-1 rounded hover:bg-[#35373c] transition-colors cursor-pointer text-left"
+            className="flex items-center gap-2.5 flex-1 min-w-0 p-1 -ml-1 rounded-xl hover:bg-[#2b2d31]/50 transition-colors cursor-pointer text-left"
           >
             <div className="relative shrink-0">
-              <Avatar.Root className="w-8 h-8 rounded-full overflow-hidden block bg-[#2b2d31]">
+              <Avatar.Root className="w-9 h-9 rounded-full overflow-hidden block bg-[#2b2d31]">
                 <Avatar.Image
                   src={currentUser.avatarUrl ?? undefined}
                   alt={currentUser.displayName}
                   className="w-full h-full object-cover"
                 />
                 <Avatar.Fallback
-                  className="w-full h-full flex items-center justify-center text-xs font-semibold text-white bg-[#5865f2]"
+                  className="w-full h-full flex items-center justify-center text-xs font-bold text-white bg-[#5865f2]"
                 >
                   {currentUser.displayName[0]?.toUpperCase()}
                 </Avatar.Fallback>
               </Avatar.Root>
               {/* Status dot */}
               <span
-                className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
+                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2"
                 style={{
                   background: statusColor,
-                  borderColor: '#232428',
+                  borderColor: '#111214',
                 }}
                 aria-label={`Status: ${statusLabel}`}
               />
             </div>
             <div className="flex flex-col min-w-0 leading-tight">
-              <span className="text-xs font-semibold truncate text-[#f2f3f5]">
-                {currentUser.displayName}
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-bold truncate text-[#f2f3f5]">
+                  {currentUser.displayName}
+                </span>
+                <ChevronDown size={14} className="shrink-0 text-[#949ba4]" />
+              </div>
               <span className="text-[11px] truncate text-[#949ba4]">
                 {subtitle}
               </span>
@@ -227,25 +233,38 @@ export default function UserBar() {
         </Popover.Portal>
       </Popover.Root>
 
-      {/* Audio & Settings controls */}
-      <div className="flex items-center gap-0.5 shrink-0">
-        <ControlButton
-          label={isMuted ? 'Desmutar microfone' : 'Mutar microfone'}
-          onClick={toggleMute}
-          active={isMuted}
+      {/* Right controls / Notification Bell in Discord mobile style */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          onClick={() => setSettingsOpen(true)}
+          title="Notificações e Configurações"
+          className="relative px-2.5 py-1.5 rounded-2xl bg-[#232428] hover:bg-[#35373c] text-[#dbdee1] flex items-center gap-1.5 transition-colors cursor-pointer"
         >
-          {isMuted ? <MicOff size={17} className="text-[#f23f43]" /> : <Mic size={17} />}
-        </ControlButton>
-        <ControlButton
-          label={isDeafened ? 'Desensurdecer' : 'Ensurdecer'}
-          onClick={toggleDeafen}
-          active={isDeafened}
-        >
-          <Headphones size={17} className={isDeafened ? 'text-[#f23f43]' : ''} />
-        </ControlButton>
-        <ControlButton label="Configurações do usuário" onClick={() => setSettingsOpen(true)}>
-          <Settings size={17} />
-        </ControlButton>
+          <Bell size={16} className="text-[#dbdee1]" />
+          {totalUnread > 0 && (
+            <span className="min-w-[16px] h-4 px-1 rounded-full bg-[#f23f43] text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
+              {totalUnread > 99 ? '99+' : totalUnread}
+            </span>
+          )}
+        </button>
+
+        <div className="hidden md:flex items-center gap-0.5">
+          <ControlButton
+            label={isMuted ? 'Desmutar microfone' : 'Mutar microfone'}
+            onClick={toggleMute}
+            active={isMuted}
+          >
+            {isMuted ? <MicOff size={16} className="text-[#f23f43]" /> : <Mic size={16} />}
+          </ControlButton>
+
+          <ControlButton
+            label={isDeafened ? 'Desensurdecer' : 'Ensurdecer'}
+            onClick={toggleDeafen}
+            active={isDeafened}
+          >
+            <Headphones size={16} className={isDeafened ? 'text-[#f23f43]' : ''} />
+          </ControlButton>
+        </div>
       </div>
 
       <UserSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />

@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Avatar from '@radix-ui/react-avatar'
-import { Plus, Compass } from 'lucide-react'
-import logoVetorizada from '@/images/logo_vetorizada.png'
+import { Plus, Compass, MessageSquare } from 'lucide-react'
 import { useServers, useCreateServer, useJoinServer, type Server } from '@/hooks/useServers'
 import { useMessagingStore } from '@/stores/messagingStore'
 import { usePendingRequests } from '@/hooks/useFriends'
@@ -98,23 +97,19 @@ function HomePillButton({
       />
       <button
         onClick={onClick}
-        title="Direct Messages"
-        aria-label="Direct Messages"
-        className={`relative w-12 h-12 flex items-center justify-center transition-all duration-200 cursor-pointer overflow-hidden ${
+        title="Mensagens diretas"
+        aria-label="Mensagens diretas"
+        className={`relative w-12 h-12 flex items-center justify-center transition-all duration-200 cursor-pointer ${
           active
             ? 'rounded-2xl bg-[#5865f2] text-white shadow-md'
             : 'rounded-[24px] bg-[#313338] text-[#dbdee1] hover:rounded-2xl hover:bg-[#5865f2] hover:text-white'
         }`}
       >
-        <img
-          src={logoVetorizada}
-          alt="Dissonance"
-          className="w-7 h-7 object-contain"
-        />
+        <MessageSquare size={22} className={active ? 'fill-current text-white' : 'fill-[#dbdee1]/40 text-[#dbdee1]'} />
 
         {/* Unread notification badge bubble */}
         {badgeCount > 0 && (
-          <span className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#f23f43] text-white text-[11px] font-bold flex items-center justify-center border-2 border-[#1e1f22] shadow animate-in fade-in zoom-in duration-150">
+          <span className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#f23f43] text-white text-[11px] font-bold flex items-center justify-center border-2 border-[#111214] shadow animate-in fade-in zoom-in duration-150">
             {badgeCount > 99 ? '99+' : badgeCount}
           </span>
         )}

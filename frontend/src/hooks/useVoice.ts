@@ -2,11 +2,14 @@ import { useCallback } from 'react'
 import {
   Room,
   RoomEvent,
+  ParticipantEvent,
   Track,
   type RemoteParticipant,
   type RemoteTrackPublication,
   type RemoteTrack,
+  type Participant,
   createLocalTracks,
+  createLocalScreenTracks,
 } from 'livekit-client'
 import { useVoiceStore, type VoiceParticipant } from '@/stores/voiceStore'
 import { updateGlobalVoiceChannel } from '@/hooks/usePresence'
@@ -25,18 +28,23 @@ function syncRoomParticipants(room: Room) {
     const camPub = local.getTrackPublication(Track.Source.Camera)
     const micPub = local.getTrackPublication(Track.Source.Microphone)
     const screenPub = local.getTrackPublication(Track.Source.ScreenShare)
+    const screenAudioPub = local.getTrackPublication(Track.Source.ScreenShareAudio)
+
+    const isLocalMuted = micPub ? micPub.isMuted : store.isMuted
+    const isLocalDeafened = store.isDeafened
 
     list.push({
       identity: local.identity,
       name: local.name || 'You',
       isLocal: true,
-      isSpeaking: local.isSpeaking,
-      isMuted: micPub ? micPub.isMuted : true,
-      isDeafened: store.isDeafened,
+      isSpeaking: local.isSpeaking && !isLocalMuted && !isLocalDeafened,
+      isMuted: isLocalMuted || isLocalDeafened,
+      isDeafened: isLocalDeafened,
       isVideoEnabled: camPub ? !camPub.isMuted : false,
       isScreenSharing: screenPub ? !screenPub.isMuted : false,
       videoTrack: camPub?.track,
       screenTrack: screenPub?.track,
+      screenAudioTrack: screenAudioPub?.track,
     })
   }
 
@@ -45,18 +53,35 @@ function syncRoomParticipants(room: Room) {
     const camPub = p.getTrackPublication(Track.Source.Camera)
     const micPub = p.getTrackPublication(Track.Source.Microphone)
     const screenPub = p.getTrackPublication(Track.Source.ScreenShare)
+    const screenAudioPub = p.getTrackPublication(Track.Source.ScreenShareAudio)
+
+    let remoteDeafened = false
+    let remoteMuted = micPub ? micPub.isMuted : true
+
+    try {
+      if (p.metadata) {
+        const meta = JSON.parse(p.metadata)
+        if (typeof meta.isDeafened === 'boolean') remoteDeafened = meta.isDeafened
+        if (typeof meta.isMuted === 'boolean') remoteMuted = meta.isMuted || remoteMuted
+      }
+    } catch (_) {}
+
+    if (remoteDeafened) {
+      remoteMuted = true
+    }
 
     list.push({
       identity: p.identity,
       name: p.name || 'Participant',
       isLocal: false,
-      isSpeaking: p.isSpeaking,
-      isMuted: micPub ? micPub.isMuted : true,
-      isDeafened: false,
+      isSpeaking: p.isSpeaking && !remoteMuted && !remoteDeafened,
+      isMuted: remoteMuted,
+      isDeafened: remoteDeafened,
       isVideoEnabled: camPub ? !camPub.isMuted && camPub.isSubscribed : false,
       isScreenSharing: screenPub ? !screenPub.isMuted && screenPub.isSubscribed : false,
       videoTrack: camPub?.track,
       screenTrack: screenPub?.track,
+      screenAudioTrack: screenAudioPub?.track,
     })
   })
 
@@ -85,6 +110,7 @@ export function useVoice() {
     }
 
     currentStore.setConnecting(channelId, serverId, channelName)
+    updateGlobalVoiceChannel(channelId)
     console.info(`[Guilda:Voice] Connecting to voice channel ${channelId} (${channelName})`)
 
     try {
@@ -97,15 +123,20 @@ export function useVoice() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         console.error(`[Guilda:Voice] Failed to get voice token status=${res.status}:`, err)
+        updateGlobalVoiceChannel(null)
         throw new Error(err.error || 'Failed to get voice token')
       }
 
       const { data } = await res.json()
       const token = data.token
 
-      // Construct ws url (using current host so it works in localhost or lan)
-      const host = window.location.hostname
-      const wsUrl = `ws://${host}:7880`
+      // If backend returns a remote LiveKit Cloud URL (wss://...), use it directly;
+      // otherwise use the current origin through the Vite / Cloudflare proxy.
+      let wsUrl = data.url
+      if (!wsUrl || wsUrl.includes('localhost') || wsUrl.includes('127.0.0.1') || wsUrl.includes('livekit:7880')) {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        wsUrl = `${protocol}//${window.location.host}`
+      }
       console.info(`[Guilda:Voice] Connecting LiveKit wsUrl=${wsUrl} room=${data.room}`)
 
       const room = new Room({
@@ -133,16 +164,51 @@ export function useVoice() {
         playVoiceLeaveSound()
       })
 
-      room.on(RoomEvent.ParticipantConnected, () => syncRoomParticipants(room))
+      const attachParticipantEvents = (p: Participant) => {
+        p.off(ParticipantEvent.IsSpeakingChanged, handleSpeakingChanged)
+        p.on(ParticipantEvent.IsSpeakingChanged, handleSpeakingChanged)
+      }
+
+      const handleSpeakingChanged = () => {
+        syncRoomParticipants(room)
+      }
+
+      room.on(RoomEvent.ParticipantConnected, (p: RemoteParticipant) => {
+        attachParticipantEvents(p)
+        syncRoomParticipants(room)
+      })
       room.on(RoomEvent.ParticipantDisconnected, () => syncRoomParticipants(room))
 
       room.on(
         RoomEvent.TrackSubscribed,
-        (track: RemoteTrack, _publication: RemoteTrackPublication, _participant: RemoteParticipant) => {
+        (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
           if (track.kind === Track.Kind.Audio) {
-            const el = track.attach()
+            const el = track.attach() as HTMLAudioElement
+            el.id = `audio-${participant.identity}-${publication.source}`
+            el.dataset.participantId = participant.identity
+            el.dataset.trackSource = publication.source
+            el.autoplay = true
+            el.volume = 1.0
+
+            // If local user is currently deafened, mute new incoming audio tracks immediately!
+            const isCurrentlyDeafened = useVoiceStore.getState().isDeafened
+            if (isCurrentlyDeafened) {
+              el.muted = true
+            }
+
             document.body.appendChild(el)
+
+            // Ensure playback starts immediately or on first user click if browser policy blocks autoplay
+            el.play().catch((err) => {
+              console.warn('[Guilda:Voice] Audio playback blocked, waiting for user click:', err)
+              const unlock = () => {
+                el.play()
+                window.removeEventListener('click', unlock)
+              }
+              window.addEventListener('click', unlock)
+            })
           }
+          attachParticipantEvents(participant)
           syncRoomParticipants(room)
         }
       )
@@ -154,6 +220,7 @@ export function useVoice() {
 
       room.on(RoomEvent.TrackMuted, () => syncRoomParticipants(room))
       room.on(RoomEvent.TrackUnmuted, () => syncRoomParticipants(room))
+      room.on(RoomEvent.ParticipantMetadataChanged, () => syncRoomParticipants(room))
       room.on(RoomEvent.LocalTrackPublished, () => syncRoomParticipants(room))
       room.on(RoomEvent.LocalTrackUnpublished, () => syncRoomParticipants(room))
 
@@ -221,6 +288,17 @@ export function useVoice() {
         await mic.track.unmute()
       }
       useVoiceStore.getState().setMuted(willMute)
+      local.setMetadata(
+        JSON.stringify({
+          isMuted: willMute,
+          isDeafened: useVoiceStore.getState().isDeafened,
+        })
+      )
+      updateGlobalVoiceChannel(
+        useVoiceStore.getState().activeChannelId,
+        willMute,
+        useVoiceStore.getState().isDeafened
+      )
       playMuteSound(willMute)
       syncRoomParticipants(currentRoom)
     } else {
@@ -228,6 +306,17 @@ export function useVoice() {
         console.info('[Guilda:Voice] Enabling microphone track on localParticipant')
         await local.setMicrophoneEnabled(true)
         useVoiceStore.getState().setMuted(false)
+        local.setMetadata(
+          JSON.stringify({
+            isMuted: false,
+            isDeafened: useVoiceStore.getState().isDeafened,
+          })
+        )
+        updateGlobalVoiceChannel(
+          useVoiceStore.getState().activeChannelId,
+          false,
+          useVoiceStore.getState().isDeafened
+        )
         syncRoomParticipants(currentRoom)
       } catch (e) {
         console.warn('[Guilda:Voice] Could not enable microphone:', e)
@@ -240,7 +329,9 @@ export function useVoice() {
     const willDeafen = !currentStore.isDeafened
     currentStore.setDeafened(willDeafen)
 
-    if (willDeafen && !currentStore.isMuted) {
+    const willMute = willDeafen ? true : currentStore.isMuted
+    if (willDeafen) {
+      currentStore.setMuted(true)
       if (currentRoom) {
         const local = currentRoom.localParticipant
         const mic = local.getTrackPublication(Track.Source.Microphone)
@@ -248,17 +339,24 @@ export function useVoice() {
           mic.track.mute()
         }
       }
-      currentStore.setMuted(true)
     }
 
-    // Mute/unmute all remote audio elements attached
+    // Mute or unmute all currently attached remote audio elements
     document.querySelectorAll('audio').forEach((el) => {
       el.muted = willDeafen
     })
 
     if (currentRoom) {
+      currentRoom.localParticipant.setMetadata(
+        JSON.stringify({
+          isMuted: willMute,
+          isDeafened: willDeafen,
+        })
+      )
       syncRoomParticipants(currentRoom)
     }
+
+    updateGlobalVoiceChannel(currentStore.activeChannelId, willMute, willDeafen)
   }, [])
 
   const toggleVideo = useCallback(async () => {
@@ -280,17 +378,53 @@ export function useVoice() {
     const local = currentRoom.localParticipant
     const isSharing = useVoiceStore.getState().isScreenSharing
 
-    try {
-      await local.setScreenShareEnabled(!isSharing)
-      useVoiceStore.getState().setScreenSharing(!isSharing)
+    if (isSharing) {
+      const screenPub = local.getTrackPublication(Track.Source.ScreenShare)
+      const screenAudioPub = local.getTrackPublication(Track.Source.ScreenShareAudio)
+      if (screenPub?.track) {
+        await local.unpublishTrack(screenPub.track)
+        screenPub.track.stop()
+      }
+      if (screenAudioPub?.track) {
+        await local.unpublishTrack(screenAudioPub.track)
+        screenAudioPub.track.stop()
+      }
+      useVoiceStore.getState().setScreenSharing(false)
       syncRoomParticipants(currentRoom)
-    } catch (e) {
-      console.warn('Screen share error:', e)
+    } else {
+      try {
+        const tracks = await createLocalScreenTracks({
+          audio: {
+            autoGainControl: false,
+            echoCancellation: false,
+            noiseSuppression: false,
+            channelCount: 2,
+          },
+          systemAudio: 'include',
+          selfBrowserSurface: 'include',
+          surfaceSwitching: 'include',
+          suppressLocalAudioPlayback: false,
+        } as any)
+
+        for (const track of tracks) {
+          await local.publishTrack(track)
+          track.on('ended', () => {
+            useVoiceStore.getState().setScreenSharing(false)
+            if (currentRoom) syncRoomParticipants(currentRoom)
+          })
+        }
+
+        useVoiceStore.getState().setScreenSharing(true)
+        syncRoomParticipants(currentRoom)
+      } catch (e) {
+        console.warn('Screen share error or cancelled by user:', e)
+      }
     }
   }, [])
 
   return {
     ...store,
+    currentRoom,
     joinVoice,
     leaveVoice,
     toggleMute,

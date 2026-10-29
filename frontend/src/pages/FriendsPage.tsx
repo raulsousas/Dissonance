@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Check, X, MessageSquare, MoreVertical, Search } from 'lucide-react'
+import { Users, Check, X, MessageSquare, MoreVertical, Search, Menu } from 'lucide-react'
 import * as Avatar from '@radix-ui/react-avatar'
+import { useUIStore } from '@/stores/uiStore'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import {
   useFriends,
@@ -33,11 +34,18 @@ export default function FriendsPage() {
     <div className="flex flex-col h-full overflow-hidden select-none" style={{ background: 'var(--color-bg-tertiary)' }}>
       {/* Top Navigation Header */}
       <header
-        className="flex items-center justify-between px-4 h-12 shrink-0 border-b shadow-sm"
+        className="flex items-center justify-between px-3 sm:px-4 h-12 shrink-0 border-b shadow-sm"
         style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}
       >
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 font-semibold text-sm text-[#f2f3f5]">
+        <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar">
+          <button
+            onClick={useUIStore.getState().openMobileNav}
+            className="p-1 -ml-1 text-[#949ba4] hover:text-[#f2f3f5] md:hidden cursor-pointer shrink-0"
+            title="Abrir menu"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-2 font-semibold text-sm text-[#f2f3f5] shrink-0">
             <Users size={20} className="text-[#949ba4]" />
             <span>Amigos</span>
           </div>
@@ -105,7 +113,6 @@ export default function FriendsPage() {
               title={tab === 'online' ? `Disponível — ${onlineFriends.length}` : `Todos os amigos — ${friends.length}`}
               search={search}
               setSearch={setSearch}
-              isUserOnline={isUserOnline}
               getUserStatus={getUserStatus}
             />
           )}
@@ -230,14 +237,12 @@ function FriendsListView({
   title,
   search,
   setSearch,
-  isUserOnline,
   getUserStatus,
 }: {
   friends: FriendUser[]
   title: string
   search: string
   setSearch: (s: string) => void
-  isUserOnline: (id: string) => boolean
   getUserStatus: (id: string) => string
 }) {
   const navigate = useNavigate()
@@ -296,7 +301,6 @@ function FriendsListView({
       ) : (
         <div className="divide-y divide-[#35373c]/50">
           {filtered.map((friend) => {
-            const online = isUserOnline(friend.id)
             const status = getUserStatus(friend.id)
 
             return (

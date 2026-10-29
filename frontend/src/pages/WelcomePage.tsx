@@ -13,7 +13,8 @@ export default function WelcomePage() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (serverId && categories.length > 0) {
+    const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768
+    if (isDesktop && serverId && categories.length > 0) {
       const firstChannel = categories.flatMap((c) => c.channels)[0]
       if (firstChannel) {
         navigate(`/app/servers/${serverId}/channels/${firstChannel.id}`, { replace: true })

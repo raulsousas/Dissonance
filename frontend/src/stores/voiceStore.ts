@@ -12,6 +12,7 @@ export interface VoiceParticipant {
   audioTrack?: any
   videoTrack?: any
   screenTrack?: any
+  screenAudioTrack?: any
 }
 
 interface VoiceState {

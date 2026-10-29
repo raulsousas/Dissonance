@@ -20,12 +20,12 @@ type Tab = 'overview' | 'members' | 'invites' | 'delete'
 
 export function ServerSettingsModal({ open, onClose, serverId }: Props) {
   const { data: server } = useServerDetail(serverId)
-  const { data: invites = [] } = useInvites(serverId)
+  const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const { data: invites = [] } = useInvites(serverId, open && activeTab === 'invites')
   const deleteInvite = useDeleteInvite()
   const deleteServer = useDeleteServer()
   const navigate = useNavigate()
 
-  const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [name, setName] = useState(server?.name ?? '')
   const [description, setDescription] = useState(server?.description ?? '')
   const [saving, setSaving] = useState(false)

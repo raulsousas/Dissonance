@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import * as Popover from '@radix-ui/react-popover'
-import { Hash, Users, Pin, Search, Bell, Inbox, HelpCircle, X } from 'lucide-react'
+import { Hash, Users, Pin, Search, X, Menu } from 'lucide-react'
 import { useChannel } from '@/hooks/useChannel'
+import { useUIStore } from '@/stores/uiStore'
 import { useChannels, useServerDetail } from '@/hooks/useServers'
 import { MessageList } from '@/components/messaging/MessageList'
 import { MessageInput } from '@/components/messaging/MessageInput'
@@ -124,22 +125,38 @@ function TextChannelView({
       })
     : messages
 
+  const { openMobileNav, toggleMobileMembers } = useUIStore()
+
   return (
     <div className="flex flex-col h-full">
       {/* Channel header */}
       <div
-        className="h-12 px-4 flex items-center justify-between border-b shrink-0 shadow-sm select-none"
+        className="h-12 px-3 sm:px-4 flex items-center justify-between border-b shrink-0 shadow-sm select-none"
         style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}
       >
-        <div className="flex items-center gap-2">
-          <Hash size={22} className="text-[#80848e]" />
-          <span className="font-bold text-sm text-[#f2f3f5]">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={openMobileNav}
+            className="p-1 -ml-1 text-[#949ba4] hover:text-[#f2f3f5] md:hidden cursor-pointer shrink-0"
+            title="Abrir menu"
+          >
+            <Menu size={20} />
+          </button>
+          <Hash size={22} className="text-[#80848e] shrink-0" />
+          <span className="font-bold text-sm text-[#f2f3f5] truncate">
             {channelName}
           </span>
         </div>
 
         {/* Right utility icons in channel header */}
-        <div className="flex items-center gap-3 text-[#b5bac1]">
+        <div className="flex items-center gap-2 sm:gap-3 text-[#b5bac1] shrink-0">
+          <button
+            onClick={toggleMobileMembers}
+            className="p-1 text-[#949ba4] hover:text-[#f2f3f5] md:hidden cursor-pointer"
+            title="Membros"
+          >
+            <Users size={20} />
+          </button>
           {/* Pinned Messages Popover */}
           <Popover.Root>
             <Popover.Trigger asChild>

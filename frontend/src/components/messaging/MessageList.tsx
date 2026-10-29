@@ -3,10 +3,10 @@
  * infinite scroll upward for history, and date separators.
  */
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { Message } from '@/stores/messagingStore'
 import { MessageItem } from './MessageItem'
-import { Hash, Loader2 } from 'lucide-react'
+import { Hash, Loader2, ChevronDown } from 'lucide-react'
 
 interface Props {
   channelName: string
@@ -69,23 +69,73 @@ export function MessageList({
   const topRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const prevScrollHeight = useRef<number>(0)
+  const [showScrollBottomButton, setShowScrollBottomButton] = useState(false)
 
-  // Scroll to bottom on first load and new messages
+  // Scroll to bottom tracking
   const isAtBottom = useRef(true)
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'instant') => {
+    const el = containerRef.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    }
+    bottomRef.current?.scrollIntoView({ behavior, block: 'end' })
+  }, [])
 
   function handleScroll() {
     const el = containerRef.current
     if (!el) return
     const threshold = 100
-    isAtBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+    isAtBottom.current = atBottom
+    setShowScrollBottomButton(!atBottom && messages.length > 5)
   }
 
-  // When new messages arrive and we're at bottom, scroll down
+  // Whenever channel changes or user clicks channel, snap immediately to bottom
+  useEffect(() => {
+    isAtBottom.current = true
+    setShowScrollBottomButton(false)
+
+    // Scroll instantly and also after microtask render
+    scrollToBottom('instant')
+    const raf = requestAnimationFrame(() => {
+      scrollToBottom('instant')
+    })
+    const timer = setTimeout(() => {
+      scrollToBottom('instant')
+    }, 60)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(timer)
+    }
+  }, [channelName, scrollToBottom])
+
+  // When new messages arrive or load, scroll down if at bottom
   useEffect(() => {
     if (isAtBottom.current) {
-      bottomRef.current?.scrollIntoView({ behavior: 'instant' })
+      scrollToBottom('instant')
+      const timer = setTimeout(() => {
+        if (isAtBottom.current) scrollToBottom('instant')
+      }, 50)
+      return () => clearTimeout(timer)
     }
-  }, [messages.length])
+  }, [messages, scrollToBottom])
+
+  // Keep scroll position at bottom when media (images, embeds) finish loading
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const handleMediaLoad = () => {
+      if (isAtBottom.current && prevScrollHeight.current === 0) {
+        el.scrollTop = el.scrollHeight
+      }
+    }
+
+    el.addEventListener('load', handleMediaLoad, true)
+    return () => el.removeEventListener('load', handleMediaLoad, true)
+  }, [])
 
   // Preserve scroll position when prepending older messages
   useEffect(() => {
@@ -147,41 +197,58 @@ export function MessageList({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="flex-1 overflow-y-auto flex flex-col py-2"
-      onScroll={handleScroll}
-    >
-      {/* Infinite scroll sentinel */}
-      <div ref={topRef} className="h-1" />
+    <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto flex flex-col py-2"
+        onScroll={handleScroll}
+      >
+        {/* Infinite scroll sentinel */}
+        <div ref={topRef} className="h-1" />
 
-      {loadingMore && (
-        <div className="flex justify-center py-3">
-          <Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-text-muted)' }} />
-        </div>
-      )}
-
-      {messages.map((msg, i) => {
-        const prev = messages[i - 1]
-        const showDateSep = !prev || !isSameDay(prev.insertedAt, msg.insertedAt)
-        return (
-          <div key={msg.id}>
-            {showDateSep && <DateSeparator iso={msg.insertedAt} />}
-            <MessageItem
-              message={msg}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onReact={onReact}
-              onRemoveReact={onRemoveReact}
-              onReply={onReply}
-              onPin={onPin}
-              onUnpin={onUnpin}
-            />
+        {loadingMore && (
+          <div className="flex justify-center py-3">
+            <Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-text-muted)' }} />
           </div>
-        )
-      })}
+        )}
 
-      <div ref={bottomRef} className="h-1" />
+        {messages.map((msg, i) => {
+          const prev = messages[i - 1]
+          const showDateSep = !prev || !isSameDay(prev.insertedAt, msg.insertedAt)
+          return (
+            <div key={msg.id}>
+              {showDateSep && <DateSeparator iso={msg.insertedAt} />}
+              <MessageItem
+                message={msg}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onReact={onReact}
+                onRemoveReact={onRemoveReact}
+                onReply={onReply}
+                onPin={onPin}
+                onUnpin={onUnpin}
+              />
+            </div>
+          )
+        })}
+
+        <div ref={bottomRef} className="h-1" />
+      </div>
+
+      {/* Floating Jump to Bottom Button in Discord style */}
+      {showScrollBottomButton && (
+        <button
+          onClick={() => {
+            isAtBottom.current = true
+            scrollToBottom('smooth')
+            setShowScrollBottomButton(false)
+          }}
+          className="absolute bottom-3 right-5 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#5865f2] hover:bg-[#4752c4] text-white text-xs font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 cursor-pointer"
+        >
+          <span>Mais recentes</span>
+          <ChevronDown size={14} />
+        </button>
+      )}
     </div>
   )
 }

@@ -171,12 +171,13 @@ export function useCreateCategory() {
 
 // ── Invites ───────────────────────────────────────────────────────────────────
 
-export function useInvites(serverId: string | null) {
+export function useInvites(serverId: string | null, enabled: boolean = true) {
   return useQuery<Invite[]>({
     queryKey: ['invites', serverId],
     queryFn: () => apiFetch(`/api/servers/${serverId}/invites`),
-    enabled: !!serverId,
+    enabled: !!serverId && enabled,
     staleTime: 1000 * 10,
+    retry: false,
   })
 }
 

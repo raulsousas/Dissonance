@@ -8,6 +8,8 @@ export interface UserPresenceInfo {
   avatarUrl?: string | null
   status: string
   voiceChannelId?: string | null
+  isMuted?: boolean
+  isDeafened?: boolean
   onlineAt?: number
 }
 
@@ -51,7 +53,6 @@ export function getStatusColor(status: string | undefined | null): string {
 }
 
 let activeChannel: Channel | null = null
-let activePresence: Presence | null = null
 let currentToken: string | null = null
 let idleTimer: any = null
 let currentManualStatus = 'online'
@@ -79,8 +80,10 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
   },
 
   getUsersInVoiceChannel: (channelId) => {
+    if (!channelId) return []
+    const targetId = String(channelId).toLowerCase()
     return Object.values(get().onlineUsers).filter(
-      (u) => u.voiceChannelId === channelId && u.status !== 'offline' && u.status !== 'invisible'
+      (u) => Boolean(u.voiceChannelId) && String(u.voiceChannelId).toLowerCase() === targetId
     )
   },
 }))
@@ -142,7 +145,6 @@ export function initGlobalPresence(token: string | null, initialStatus?: string)
     if (activeChannel) {
       activeChannel.leave()
       activeChannel = null
-      activePresence = null
       currentToken = null
       usePresenceStore.getState().setOnlineUsers({})
     }
@@ -164,21 +166,27 @@ export function initGlobalPresence(token: string | null, initialStatus?: string)
   const channel = socket.channel('presence:global', {})
   activeChannel = channel
   const presence = new Presence(channel)
-  activePresence = presence
 
   function syncState() {
     const state: Record<string, UserPresenceInfo> = {}
     presence.list((userId, { metas }) => {
-      const first = metas[0] as any
-      if (first) {
+      const metasArr = (metas || []) as any[]
+      // Find any meta that has voice_channel_id across all connections/tabs for this user
+      const voiceMeta = metasArr.find((m) => Boolean(m.voice_channel_id))
+      const latestMeta = metasArr[metasArr.length - 1] || metasArr[0]
+      const primaryMeta = voiceMeta || latestMeta
+
+      if (primaryMeta) {
         const idLower = userId.toLowerCase()
         state[idLower] = {
           userId: idLower,
-          displayName: first.display_name,
-          avatarUrl: first.avatar_url,
-          status: first.status || 'online',
-          voiceChannelId: first.voice_channel_id ?? null,
-          onlineAt: first.online_at,
+          displayName: primaryMeta.display_name,
+          avatarUrl: primaryMeta.avatar_url,
+          status: primaryMeta.status || 'online',
+          voiceChannelId: voiceMeta ? voiceMeta.voice_channel_id : (primaryMeta.voice_channel_id ?? null),
+          isMuted: Boolean(voiceMeta ? voiceMeta.voice_muted : primaryMeta.voice_muted),
+          isDeafened: Boolean(voiceMeta ? voiceMeta.voice_deafened : primaryMeta.voice_deafened),
+          onlineAt: primaryMeta.online_at,
         }
       }
     })
@@ -195,16 +203,48 @@ export function initGlobalPresence(token: string | null, initialStatus?: string)
     .receive('ok', () => {
       console.info('[Guilda:Presence] Successfully joined presence:global channel')
       setupSmartIdleTracking()
+      if (currentVoiceChannelId && activeChannel) {
+        activeChannel.push('update_voice_channel', {
+          voice_channel_id: currentVoiceChannelId,
+          is_muted: currentVoiceMuted,
+          is_deafened: currentVoiceDeafened,
+        })
+      }
     })
     .receive('error', (err) => {
       console.warn('[Guilda:Presence] Failed to join presence:global channel:', err)
     })
 }
 
-export function updateGlobalVoiceChannel(voiceChannelId: string | null) {
-  console.info('[Guilda:Presence] Updating global voice channel ->', voiceChannelId)
+let currentVoiceChannelId: string | null = null
+let currentVoiceMuted = false
+let currentVoiceDeafened = false
+
+export function updateGlobalVoiceChannel(
+  voiceChannelId: string | null,
+  isMuted: boolean = false,
+  isDeafened: boolean = false
+) {
+  currentVoiceChannelId = voiceChannelId
+  currentVoiceMuted = isMuted
+  currentVoiceDeafened = isDeafened
+  console.info('[Guilda:Presence] Updating global voice channel ->', voiceChannelId, { isMuted, isDeafened })
   if (activeChannel) {
-    activeChannel.push('update_voice_channel', { voice_channel_id: voiceChannelId })
+    activeChannel.push('update_voice_channel', {
+      voice_channel_id: voiceChannelId,
+      is_muted: isMuted,
+      is_deafened: isDeafened,
+    })
+  }
+}
+
+export function updateGlobalProfile(displayName?: string, avatarUrl?: string | null) {
+  console.info('[Guilda:Presence] Updating global user profile ->', displayName, avatarUrl)
+  if (activeChannel) {
+    activeChannel.push('update_profile', {
+      display_name: displayName,
+      avatar_url: avatarUrl,
+    })
   }
 }
 

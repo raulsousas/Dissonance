@@ -13,43 +13,38 @@ export default function DmSidebar() {
   const { conversationId } = useParams()
   const { data: conversations = [] } = useConversations()
   const { data: pendingRequests } = usePendingRequests()
-  const { isUserOnline, getUserStatus } = usePresence()
+  const { getUserStatus } = usePresence()
   const [newDmOpen, setNewDmOpen] = useState(false)
 
   const pendingCount = (pendingRequests?.incoming.length ?? 0)
 
   return (
-    <div className="flex flex-col h-full select-none" style={{ background: 'var(--color-bg-secondary)' }}>
+    <div className="flex flex-col h-full select-none bg-[#1e1f22] text-[#dbdee1]">
       {/* Top search bar button */}
-      <div className="h-12 px-2.5 flex items-center border-b shrink-0 shadow-sm" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="h-13 px-3 flex items-center border-b border-[#1f2023]/40 shrink-0">
         <button
           onClick={() => setNewDmOpen(true)}
-          className="w-full h-7 px-2 rounded text-xs text-left transition-colors flex items-center justify-start cursor-pointer hover:bg-[#111214]"
-          style={{
-            background: 'var(--color-bg-primary)',
-            color: 'var(--color-text-muted)',
-          }}
+          className="w-full h-8 px-3 rounded-lg text-xs text-left transition-colors flex items-center justify-start cursor-pointer bg-[#111214] text-[#949ba4] hover:text-[#dbdee1]"
         >
           <span className="truncate text-xs font-medium">Encontre ou comece uma conversa</span>
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
         {/* Friends Item */}
         <button
           onClick={() => navigate('/app/dm')}
-          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded text-sm font-medium transition-colors cursor-pointer ${
+          className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
             !conversationId
-              ? 'bg-[#3f4248] text-white font-semibold'
-              : 'text-[#949ba4] hover:bg-[#35373c] hover:text-[#dbdee1]'
+              ? 'bg-[#35373c] text-white font-semibold'
+              : 'text-[#949ba4] hover:bg-[#35373c]/50 hover:text-[#dbdee1]'
           }`}
         >
           <Users size={18} className="shrink-0" />
           <span className="flex-1 text-left text-sm font-medium">Amigos</span>
           {pendingCount > 0 && (
             <span
-              className="px-1.5 py-0.5 rounded-full text-[11px] font-bold leading-none"
-              style={{ background: 'var(--color-danger)', color: '#fff' }}
+              className="px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none bg-[#f23f43] text-white"
             >
               {pendingCount}
             </span>

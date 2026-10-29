@@ -5,7 +5,7 @@
 
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Crown, MessageSquare, UserPlus, Check } from 'lucide-react'
+import { Crown, MessageSquare, UserPlus, Check, ChevronDown, ChevronRight } from 'lucide-react'
 import * as Popover from '@radix-ui/react-popover'
 import * as Avatar from '@radix-ui/react-avatar'
 import { useServerDetail } from '@/hooks/useServers'
@@ -23,6 +23,13 @@ export default function MemberPanel({ serverId: propServerId }: Props) {
   const serverId = propServerId || routeServerId
   const { data: server, isLoading } = useServerDetail(serverId ?? null)
   const { isUserOnline, getUserStatus } = usePresence()
+
+  // Track collapsed state for each section
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+
+  const toggleSection = (section: string) => {
+    setCollapsed((prev) => ({ ...prev, [section]: !prev[section] }))
+  }
 
   if (!serverId || !server) {
     if (isLoading) {
@@ -70,80 +77,124 @@ export default function MemberPanel({ serverId: propServerId }: Props) {
   )
 
   return (
-    <div className="flex flex-col h-full py-4 px-2 space-y-4 select-none">
+    <div className="flex flex-col h-full py-4 px-2 space-y-4 select-none overflow-y-auto">
       {/* Admins / Owner Section */}
       {ownerAndAdmins.length > 0 && (
         <div>
-          <h4 className="px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#f0b232]">
-            Dono & Admins — {ownerAndAdmins.length}
-          </h4>
-          <div className="space-y-0.5">
-            {ownerAndAdmins.map((m) => (
-              <MemberItem
-                key={m.userId}
-                member={m}
-                isOwner={m.userId.toLowerCase() === ownerId}
-                status={getUserStatus(m.userId)}
-              />
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => toggleSection('admins')}
+            className="flex items-center justify-between w-full px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#f0b232] hover:text-[#f8c85c] transition-colors cursor-pointer group"
+          >
+            <span>Dono & Admins — {ownerAndAdmins.length}</span>
+            {collapsed['admins'] ? (
+              <ChevronRight size={14} className="text-[#f0b232]" />
+            ) : (
+              <ChevronDown size={14} className="text-[#f0b232]" />
+            )}
+          </button>
+          {!collapsed['admins'] && (
+            <div className="space-y-0.5 transition-all">
+              {ownerAndAdmins.map((m) => (
+                <MemberItem
+                  key={m.userId}
+                  member={m}
+                  isOwner={m.userId.toLowerCase() === ownerId}
+                  status={getUserStatus(m.userId)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Moderators Section */}
       {moderators.length > 0 && (
         <div>
-          <h4 className="px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#5865f2]">
-            Moderadores — {moderators.length}
-          </h4>
-          <div className="space-y-0.5">
-            {moderators.map((m) => (
-              <MemberItem
-                key={m.userId}
-                member={m}
-                isOwner={false}
-                status={getUserStatus(m.userId)}
-              />
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => toggleSection('moderators')}
+            className="flex items-center justify-between w-full px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#5865f2] hover:text-[#7983f5] transition-colors cursor-pointer group"
+          >
+            <span>Moderadores — {moderators.length}</span>
+            {collapsed['moderators'] ? (
+              <ChevronRight size={14} className="text-[#5865f2]" />
+            ) : (
+              <ChevronDown size={14} className="text-[#5865f2]" />
+            )}
+          </button>
+          {!collapsed['moderators'] && (
+            <div className="space-y-0.5 transition-all">
+              {moderators.map((m) => (
+                <MemberItem
+                  key={m.userId}
+                  member={m}
+                  isOwner={false}
+                  status={getUserStatus(m.userId)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Online Members Section */}
       {regularOnline.length > 0 && (
         <div>
-          <h4 className="px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#949ba4]">
-            Disponível — {regularOnline.length}
-          </h4>
-          <div className="space-y-0.5">
-            {regularOnline.map((m) => (
-              <MemberItem
-                key={m.userId}
-                member={m}
-                isOwner={false}
-                status={getUserStatus(m.userId)}
-              />
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => toggleSection('online')}
+            className="flex items-center justify-between w-full px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#949ba4] hover:text-[#dbdee1] transition-colors cursor-pointer group"
+          >
+            <span>Disponível — {regularOnline.length}</span>
+            {collapsed['online'] ? (
+              <ChevronRight size={14} className="text-[#949ba4]" />
+            ) : (
+              <ChevronDown size={14} className="text-[#949ba4]" />
+            )}
+          </button>
+          {!collapsed['online'] && (
+            <div className="space-y-0.5 transition-all">
+              {regularOnline.map((m) => (
+                <MemberItem
+                  key={m.userId}
+                  member={m}
+                  isOwner={false}
+                  status={getUserStatus(m.userId)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Offline Members Section */}
       {offlineMembers.length > 0 && (
         <div>
-          <h4 className="px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#949ba4]">
-            Offline — {offlineMembers.length}
-          </h4>
-          <div className="space-y-0.5 opacity-60 hover:opacity-100 transition-opacity">
-            {offlineMembers.map((m) => (
-              <MemberItem
-                key={m.userId}
-                member={m}
-                isOwner={m.userId.toLowerCase() === ownerId}
-                status="offline"
-              />
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => toggleSection('offline')}
+            className="flex items-center justify-between w-full px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-[#949ba4] hover:text-[#dbdee1] transition-colors cursor-pointer group"
+          >
+            <span>Offline — {offlineMembers.length}</span>
+            {collapsed['offline'] ? (
+              <ChevronRight size={14} className="text-[#949ba4]" />
+            ) : (
+              <ChevronDown size={14} className="text-[#949ba4]" />
+            )}
+          </button>
+          {!collapsed['offline'] && (
+            <div className="space-y-0.5 opacity-60 hover:opacity-100 transition-opacity">
+              {offlineMembers.map((m) => (
+                <MemberItem
+                  key={m.userId}
+                  member={m}
+                  isOwner={m.userId.toLowerCase() === ownerId}
+                  status="offline"
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
